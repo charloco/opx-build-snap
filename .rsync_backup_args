@@ -1,0 +1,3 @@
+--prune-empty-dirs
+--delete
+--delete-excluded

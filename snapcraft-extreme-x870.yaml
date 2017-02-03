@@ -1,0 +1,74 @@
+name: openswitch-extreme-x870
+version: '1.0.1'
+summary: OpenSwitch for the Extreme x870
+description: |
+  OpenSwitch for the Extreme Networks Summit x870 switch.
+
+grade: devel
+confinement: devmode
+
+apps:
+  start-opx:
+    command: usr/bin/start-opx-hw
+    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
+
+  stop-opx:
+    command: usr/bin/stop-opx-hw
+    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
+
+  shell:
+    command: bin/bash
+    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c ]
+
+parts:
+  opx-init:
+    plugin: make
+    source: src/opx-init
+    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python ]
+    stage:
+      - -etc/redis/redis.conf
+  libopx-logging:
+    source: ../libopx-logging1_1.0.1_amd64.deb 
+    plugin: dump
+  python-opx-logging:
+    source: ../python-opx-logging_1.0.1_amd64.deb 
+    plugin: dump
+  libopx-common-utils:
+    source: ../libopx-common1_1.0.1_amd64.deb
+    plugin: dump
+  libopx-cps:
+    source: ../libopx-cps1_1.0.1_amd64.deb
+    plugin: dump
+  libopx-pas:
+    source: ../libopx-pas1_1.0.1_amd64.deb
+    plugin: dump
+  opx-cps:
+    source: ../opx-cps_1.0.1_amd64.deb
+    build-packages: [ python3-binaryornot ]
+    stage-packages: [ libhiredis0.13 ]
+    plugin: x_dump
+  python-opx-cps:
+    source: ../python-opx-cps_1.0.1_amd64.deb
+    plugin: dump
+  libopx-base-model:
+    source: ../libopx-base-model1_1.0.1_amd64.deb
+    plugin: dump
+  libopx-sdi-framework:
+    source: ../libopx-sdi-framework1_1.0.1_amd64.deb
+    plugin: dump
+  libopx-sdi-device-drivers:
+    source: ../libopx-sdi-device-drivers1_1.0.1_amd64.deb
+    plugin: dump
+  libopx-sdi-sys:
+    source: ../libopx-sdi-sys1_1.0.1_amd64.deb
+    plugin: dump
+  opx-platform-config:
+    source: ../opx-platform-config-extreme-x870_1.0.1_amd64.deb
+    plugin: dump
+    stage-packages: [ dmidecode ]
+  opx-pas:
+    source: ../opx-pas_1.0.1_amd64.deb
+    plugin: dump
+  opx-tempctl:
+    source: ../opx-tmpctl_1.0.1_all.deb
+    plugin: x_dump
