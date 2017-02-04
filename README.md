@@ -7,7 +7,7 @@ The Snaps are platform-specific, so there will be one Snap for each supported pl
 The process to build a Snap follows.
 
 1. Perform the "normal" build of OpenSwitch on a Ubuntu Xenial system or VM.
-   Use 'opx-build/scripts/opx_build all' to build then OpenSwitch .deb files.
+   Use 'opx-helpers/opx_build_all --xenial' to build then OpenSwitch .deb files.
 
 2. Create a symbolic link snapcraft.yaml to the platform-specific yaml file.
 

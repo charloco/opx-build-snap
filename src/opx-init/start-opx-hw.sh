@@ -30,18 +30,6 @@ else
 fi
 
 # Set up the OPX environment file for Snappy
-for i in $SNAP_DATA/etc/opx/*environment* ; do
-    if ! grep -Fq "\$SNAP" "$i" ; then
-        sed -i 's/=\/usr\/lib/=$SNAP\/usr\/lib/g' $i
-        sed -i 's/:\/usr\/lib/:$SNAP\/usr\/lib/g' $i
-        sed -i 's/=\/lib/=$SNAP\/lib/g' $i
-        sed -i 's/:\/lib/:$SNAP\/lib/g' $i
-        if grep -Fq "export" "$i" ; then
-            exp="export "
-        fi 
-        echo "${exp}OPX_CONFIG_ROOT=$SNAP" >> $i
-    fi
-done
 source $SNAP_DATA/etc/opx/opx-environment.sh
 
 # Setup _opx_cps user

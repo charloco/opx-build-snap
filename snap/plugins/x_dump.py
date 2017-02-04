@@ -1,9 +1,21 @@
 import os
+import re
 import logging
 from binaryornot.check import is_binary
 import snapcraft.plugins.dump
 
 logger = logging.getLogger(__name__)
+
+
+def _replace(path, pattern, sub):
+    cpat = re.compile(pattern)
+    with open(path, 'r') as fo:
+        filedata = fo.read()
+    filedata, nsubs = (re.subn(cpat, sub, filedata))
+    if nsubs:
+        with open(path, 'w') as fo:
+            fo.write(filedata)
+        logger.info('Replaced "{}" in file {}'.format(pattern, path))
 
 class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
 
@@ -16,18 +28,14 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                     continue
                 if is_binary(fpath):
                     continue
-                fo = open(fpath, 'r')
-                try:
-                    line = fo.readline()
-                    if '#!' not in line:
-                        continue
-                finally:
-                    fo.close()
-                logger.info('Translate shebangs in ' + fpath)
-                with open(fpath, 'r') as fo:
-                    filedata = fo.read()
-                filedata = filedata.replace('#! /usr/bin/python', '#!/usr/bin/env python')
-                filedata = filedata.replace('#!/usr/bin/python', '#!/usr/bin/env python')
-                filedata = filedata.replace('#! /usr/bin/bash', '#!/usr/bin/env bash')
-                with open(fpath, 'w') as fo:
-                    fo.write(filedata)
+                if 'environment' in fpath:
+                    _replace(fpath, '=/usr/', '=$SNAP/usr/')
+                    _replace(fpath, ':/usr/', ':$SNAP/usr/')
+                    _replace(fpath, '=/lib', '=$SNAP/lib')
+                    _replace(fpath, ':/lib', ':$SNAP/lib')
+                    with open(fpath, 'a') as fo:
+                        if '.sh' in fpath:
+                            fo.write('export ')
+                        fo.write('OPX_CONFIG_ROOT=$SNAP\n')
+                else:
+                    _replace(fpath, '#!.*/usr/bin/', '#!/usr/bin/env ');

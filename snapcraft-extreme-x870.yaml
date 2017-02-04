@@ -16,6 +16,10 @@ apps:
     command: usr/bin/stop-opx-hw
     plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
 
+  test-opx:
+    command: usr/bin/test-opx-hw
+    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
+
   shell:
     command: bin/bash
     plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c ]
@@ -29,19 +33,19 @@ parts:
       - -etc/redis/redis.conf
   libopx-logging:
     source: ../libopx-logging1_1.0.1_amd64.deb 
-    plugin: dump
+    plugin: x_dump
   python-opx-logging:
     source: ../python-opx-logging_1.0.1_amd64.deb 
-    plugin: dump
+    plugin: x_dump
   libopx-common-utils:
     source: ../libopx-common1_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   libopx-cps:
     source: ../libopx-cps1_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   libopx-pas:
     source: ../libopx-pas1_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   opx-cps:
     source: ../opx-cps_1.0.1_amd64.deb
     build-packages: [ python3-binaryornot ]
@@ -49,26 +53,26 @@ parts:
     plugin: x_dump
   python-opx-cps:
     source: ../python-opx-cps_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   libopx-base-model:
     source: ../libopx-base-model1_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   libopx-sdi-framework:
     source: ../libopx-sdi-framework1_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   libopx-sdi-device-drivers:
     source: ../libopx-sdi-device-drivers1_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   libopx-sdi-sys:
     source: ../libopx-sdi-sys1_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   opx-platform-config:
     source: ../opx-platform-config-extreme-x870_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
     stage-packages: [ dmidecode ]
   opx-pas:
     source: ../opx-pas_1.0.1_amd64.deb
-    plugin: dump
+    plugin: x_dump
   opx-tempctl:
     source: ../opx-tmpctl_1.0.1_all.deb
     plugin: x_dump
