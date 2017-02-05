@@ -88,7 +88,7 @@ sleep 2
 $BINDIR/opx_pas_service &
 echo $! > $PIDDIR/opx_pas_service.pid
 sleep 1
-$BINDIR/opx_env_tmpctl_svc &
+$BINDIR/opx_env_tmpctl_svc -f $SNAP/etc/opx/env-tmpctl/config.json &
 echo $! > $PIDDIR/opx_env_tmpctl_svc.pid
 # $BINDIR/base_nas_monitor_phy_media.sh &
 # $BINDIR/base_nas_phy_media_config.sh &
