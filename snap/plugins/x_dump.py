@@ -36,6 +36,6 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                     with open(fpath, 'a') as fo:
                         if '.sh' in fpath:
                             fo.write('export ')
-                        fo.write('OPX_CONFIG_ROOT=$SNAP\n')
+                        fo.write('OPX_CFG_FILE_LOCATION=$SNAP/etc/opx\n')
                 else:
                     _replace(fpath, '#!.*/usr/bin/', '#!/usr/bin/env ');
