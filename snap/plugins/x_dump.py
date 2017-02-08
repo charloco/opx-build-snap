@@ -6,7 +6,6 @@ import snapcraft.plugins.dump
 
 logger = logging.getLogger(__name__)
 
-
 def _replace(path, pattern, sub):
     cpat = re.compile(pattern)
     with open(path, 'r') as fo:
@@ -35,7 +34,11 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                     _replace(fpath, ':/lib', ':$SNAP/lib')
                     with open(fpath, 'a') as fo:
                         if '.sh' in fpath:
-                            fo.write('export ')
-                        fo.write('OPX_CFG_FILE_LOCATION=$SNAP/etc/opx\n')
+                            export='export '
+                        else:
+                            export=''
+                        fo.write(export + 'OPX_CFG_FILE_LOCATION=$SNAP/etc/opx\n')
+                        fo.write(export + 'GOROOT=$SNAP/usr/lib/go-1.6\n')
+                        fo.write(export + 'GOPATH=$SNAP\n')
                 else:
                     _replace(fpath, '#!.*/usr/bin/', '#!/usr/bin/env ');

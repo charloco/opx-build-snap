@@ -3,6 +3,8 @@
 set -e
 set +x
 
+source $SNAP/etc/opx/opx-environment.sh
+
 read -n 1 -s -p "Press any key to continue..."
 echo
 echo

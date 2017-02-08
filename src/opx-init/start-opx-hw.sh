@@ -1,106 +1,46 @@
 #!/usr/bin/env bash
 set -e
-set -x
+set +x
 shopt -s nullglob
 
-# "hw" == Hardware
-# "vm" == Virtual Machine
-OPXTYPE="hw"
-
-# Local variables
-PIDDIR="$SNAP_DATA/var/run/opx/pids"
-BINDIR="$SNAP/usr/bin"
-LIBOPXDIR="$SNAP/usr/lib/opx"
-
-# Required for GO
-export GOROOT=$SNAP/usr/lib/go-1.6
-export GOPATH=$SNAP
-
-# Setup /var/run, /run and /var/log
-/usr/bin/test -d $SNAP_DATA/run || mkdir -p $SNAP_DATA/run
-/usr/bin/test -d $SNAP_DATA/var || mkdir -p $SNAP_DATA/var
-/usr/bin/test -d $SNAP_DATA/var/log || mkdir -p $SNAP_DATA/var/log
-/usr/bin/test -L $SNAP_DATA/var/run || ln -s $SNAP_DATA/run $SNAP_DATA/var/run
-/usr/bin/test -d $PIDDIR ||  mkdir -p $PIDDIR
-
-if [ $OPXTYPE == "vm" ] ; then
-    /usr/bin/test -d $SNAP_DATA/etc || mkdir -p $SNAP_DATA/etc
+if [ -z "$1" ] ; then
+    action="start"
 else
-    /usr/bin/test -d $SNAP_DATA/etc/opx || (mkdir -p $SNAP_DATA/etc/opx && cp -r $SNAP/etc/opx/* $SNAP_DATA/etc/opx/)
+    action="$1"
 fi
 
 # Set up the OPX environment file for Snappy
-source $SNAP_DATA/etc/opx/opx-environment.sh
+source $SNAP/etc/opx/opx-environment.sh
+source $SNAP/usr/bin/opx-init-env
 
-# Setup _opx_cps user
-if [ $OPXTYPE == "hw" ] ; then
-    EXTRA="--extrausers"
-# Having problems with the --extrausers and groups.
-# see https://bugs/launchpad.net/ubuntu/+source/adduser/+bug/1647333
-# if ! getent group _opx_cps > /dev/null; then
-#    addgroup $EXTRA --quiet --system --force-badname _opx_cps
-# fi
-# if ! getent passwd  _opx_cps> /dev/null; then
-#    adduser $EXTRA --quiet --system  --force-badname --no-create-home _opx_cps
-#fi
-else
-    if ! getent group _opx_cps > /dev/null; then
-        addgroup --quiet --system --force-badname _opx_cps
-    fi
-    if ! getent passwd  _opx_cps> /dev/null; then
-        adduser --quiet --system  --force-badname --no-create-home _opx_cps
-    fi
+services=( opx-cps.service opx-cps-db.service opx-platform-init.service opx-pas.service opx-tmpctl.service )
+
+case $action in
+    start|daemonize)
+        $SNAP/usr/bin/opx-snap-init
+        waitforopxinit
+        $SNAP/usr/bin/start-redis-server start
+        for s in "${services[@]}" ; do
+            $SNAP/usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/$s start
+        done
+        ;;
+    stop)
+        for ((i=${#services[@]}-1; i>=0; i--)); do
+            $SNAP/usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/${services[$i]} stop
+        done
+        $SNAP/usr/bin/start-redis-server stop
+        ;;
+    *)
+        echo "Unknow action"
+        exit 1
+        ;;
+esac
+
+if [ $action == "daemonize" ] ; then
+    # Due to bug https://bugs.launchpad.net/snappy/+bug/1647169, we have to
+    # hang around forever if started by 
+    set +x
+    while [ 1 ] ; do
+        sleep 60
+    done
 fi
-
-echo STARTING: Redis Server
-if [ ! -d $SNAP_DATA/var/run/redis.conf ]
-then
-    mkdir -p $SNAP_DATA/var/log/redis
-    mkdir -p $SNAP_DATA/var/lib
-    mkdir -p $SNAP_DATA/var/lib/redis
-    sed "s|logfile \/var\/log\/redis\/redis-server.log|logfile ${SNAP_DATA}\/var\/log\/redis\/redis-server.log|g" $SNAP/etc/redis/redis.conf > $SNAP_DATA/var/run/redis.conf
-    sed -i -e"s|\/var\/lib\/redis|$SNAP_DATA\/var\/lib\/redis|g" $SNAP_DATA/var/run/redis.conf
-fi
-
-pushd $SNAP_DATA/run
-/bin/run-parts --verbose $SNAP/etc/redis/redis-server.pre-up.d
-redis-server $SNAP_DATA/var/run/redis.conf &
-echo $! > $PIDDIR/redis-server.pid
-/bin/run-parts --verbose $SNAP/etc/redis/redis-server.post-up.d
-popd
-
-echo STARTING: Platform-Specific initialization
-for m in $SNAP/etc/modules-load.d/* ; do
-    while read mod ; do
-        modprobe $mod 2>/dev/null 1>&2 || true
-    done < $m
-done
-$BINDIR/opx_platform_init.sh
-
-echo STARTING: OPX 
-pushd $SNAP_DATA/run
-$BINDIR/opx_cps_service &
-sleep 1
-echo $! > $PIDDIR/opx-cps.pid
-$BINDIR/python $LIBOPXDIR/cps_db_stunnel_manager.py &
-echo $! > $PIDDIR/cps_db_stunnel_manager.pid
-sleep 2
-$BINDIR/opx_pas_service &
-echo $! > $PIDDIR/opx_pas_service.pid
-sleep 1
-$BINDIR/opx_env_tmpctl_svc -f $SNAP/etc/opx/env-tmpctl/config.json &
-echo $! > $PIDDIR/opx_env_tmpctl_svc.pid
-# $BINDIR/base_nas_monitor_phy_media.sh &
-# $BINDIR/base_nas_phy_media_config.sh &
-# $BINDIR/opx_nas_daemon &
-# $BINDIR/base_nas_front_panel_ports.sh &
-# $BINDIR/base-nas-shell.sh &
-# $BINDIR/base_nas_create_interface.sh &
-# $BINDIR/base_nas_fanout_init.sh && $BINDIR/network_restart.sh &
-# $BINDIR/base_ip &
-# $BINDIR/base_acl_copp_svc.sh &
-# $BINDIR/base_nas_default_init.sh &
-# $BINDIR/base_qos_init.sh &
-popd
-echo ENDING: OPX
-
