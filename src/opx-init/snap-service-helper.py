@@ -50,6 +50,21 @@ def process_env_file( env ):
 
 class Service(object):
 
+    def __create_dir(self, newdir, mode=0777):
+        if newdir.startswith("-"):
+            newdir = newdir[1:]
+        if not os.path.isdir(newdir):
+            if args.debug:
+                print 'Creating dir {} with mode 0{:o}'.format(newdir, mode)
+            os.makedirs(newdir, mode)
+
+    def __append_cmd(self, cmds, newcmd):
+        if not newcmd:
+            while len(cmds) > 0:
+                cmds.remove(cmds[0])
+        else:
+            cmds.append(newcmd)
+
     def __parse_service_line( self, line ):
         line = line.strip()
         ciline = line.lower()
@@ -74,6 +89,24 @@ class Service(object):
             return
         elif ciline.startswith('remainafterexit='):
             return
+        elif ciline.startswith('timeoutstopsec='):
+            return
+        elif ciline.startswith('restart='):
+            return
+        elif ciline.startswith('user='):
+            return
+        elif ciline.startswith('group='):
+            return
+        elif ciline.startswith('protectsystem='):
+            return
+        elif ciline.startswith('privatetmp='):
+            return
+        elif ciline.startswith('privatedevices='):
+            return
+        elif ciline.startswith('protecthome='):
+            return
+        elif ciline.startswith('capabilityboundingset='):
+            return
         elif ciline.startswith('description='):
             self.descr = line.split('=',1)[-1]
         elif ciline.startswith('after='):
@@ -91,11 +124,27 @@ class Service(object):
         elif ciline.startswith('environmentfile='):
             self.envfile = line.split('=',1)[-1]
         elif ciline.startswith('execstart='):
-            self.execstart = line.split('=',1)[-1]
+            self.__append_cmd(self.execstart, line.split('=',1)[-1])
+        elif ciline.startswith('execstartpre='):
+            self.__append_cmd(self.execstartpre, line.split('=',1)[-1])
+        elif ciline.startswith('execstartpost='):
+            self.__append_cmd(self.execstartpost, line.split('=',1)[-1])
+        elif ciline.startswith('execstop='):
+            self.__append_cmd(self.execstop, line.split('=',1)[-1])
+        elif ciline.startswith('execstoppre='):
+            self.__append_cmd(self.execstoppre, line.split('=',1)[-1])
+        elif ciline.startswith('execstoppost='):
+            self.__append_cmd(self.execstoppost, line.split('=',1)[-1])
         elif ciline.startswith('type='):
             self.exectype = line.split('=',1)[-1]
         elif ciline.startswith('pidfile='):
             self.pidfile = line.split('=',1)[-1]
+        elif ciline.startswith('alias='):
+            self.alias = line.split('=',1)[-1]
+        elif ciline.startswith('readonlydirectories='):
+            self.__create_dir(line.split('=',1)[-1], 0555)
+        elif ciline.startswith('readwritedirectories='):
+            self.__create_dir(line.split('=',1)[-1])
         else:
             print '{}: Unrecognized "{}"'.format(self.svcid, line)
 
@@ -142,9 +191,32 @@ class Service(object):
                                                       words[0].strip(),
                                                       words[1].strip())
 
+    def __run_commands(self, cmd_list, exectype='oneshot'):
+        for cmd in cmd_list:
+            if cmd.startswith("-"):
+                cmd = cmd[1:]
+                noerr=True
+            else:
+                noerr=False
+            if (exectype == 'oneshot'):
+                if args.debug:
+                    print 'Exec: {} {}'.format(exectype, cmd)
+                if not args.nostart:
+                    subprocess.call(cmd.split(), env=self.svcenv)
+            else:
+                if not args.nostart:
+                    e = subprocess.Popen(cmd.split(), env=self.svcenv)
+                    pid = e.pid
+                else:
+                    pid = 0
+                self.__create_pid_file(pid)
+                if args.debug:
+                    print 'Exec {}: {} pid = {}'.format(exectype, cmd, pid)
+                if pid:
+                    time.sleep(1)
+
     def __init__(self, path):
         self.svcid = os.path.basename(path)
-        self.name = service_name(self.svcid)
         self.after = ''
         self.before = ''
         self.pidfile = ''
@@ -152,8 +224,15 @@ class Service(object):
         self.svcenv = os.environ.copy()
         self.exectype = 'simple'
         self.killsig = '-SIGTERM'
+        self.execstart = [ ]
+        self.execstartpre = [ ]
+        self.execstartpost = [ ]
+        self.execstop = [ ]
+        self.execstoppre = [ ]
+        self.execstoppost = [ ]
         self.__parse_service(path)
         self.__parse_dropins()
+        self.name = service_name(self.svcid)
         if (self.after == '') & (self.before == ''):
             self.sort_dont_care = 0
         else:
@@ -169,50 +248,50 @@ class Service(object):
                                                                      self.before,
                                                                      self.pidfile)
     def start(self):
-        if (self.exectype == 'oneshot'):
-            if args.debug:
-                print 'ExecStart: oneshot {}'.format(self.execstart)
-            if not args.nostart:
-                subprocess.call(self.execstart.split(), env=self.svcenv)
-        else:
-            if not args.nostart:
-                e = subprocess.Popen(self.execstart.split(), env=self.svcenv)
-                pid = e.pid
-            else:
-                pid = 0
-            self.__create_pid_file(pid)
-            if args.debug:
-                print 'ExecStart {}: {} pid = {}'.format(self.exectype,
-                                                         self.execstart, pid)
-            if pid:
-                time.sleep(1)
+        if args.debug:
+            print 'Starting {}'.format(self.svcid)
+        if self.execstartpre:
+            self.__run_commands(self.execstartpre)
+        self.__run_commands(self.execstart, self.exectype)
+        if self.execstartpost:
+            self.__run_commands(self.execstartpost)
 
     def stop(self):
         if args.debug:
             print 'Stopping {}'.format(self.svcid)
-        pid = '0'
-        if os.path.isfile(self.pidfile):
-            with open(self.pidfile, 'r') as fo:
-                pid = fo.readline()
-                pid = pid.lstrip()
-                pid = pid.rstrip()
-                if args.debug:
-                    print 'Obtained pid "{}" from {}'.format(pid,self.pidfile)
-            if not args.nostart:
-                rc = -1
-                if (pid != '') & (pid != '0'):
-                    try:
-                        subprocess.check_call(['kill', self.killsig, pid])
-                        rc = 0
-                    except subprocess.CalledProcessError as e:
-                        rc = e.returncode
-                if rc != 0:
-                    try:
-                        subprocess.check_call(['pkill', self.killsig, self.name])
-                    except subprocess.CalledProcessError as e:
-                        rc = e.returncode
+        if self.execstoppre:
+            self.__run_commands(self.execstoppre)
 
+        if self.execstop:
+            self.__run_commands(self.execstop)
+        else:
+            pid = '0'
+            if os.path.isfile(self.pidfile):
+                with open(self.pidfile, 'r') as fo:
+                    pid = fo.readline()
+                    pid = pid.lstrip()
+                    pid = pid.rstrip()
+                    if args.debug:
+                        print 'Obtained pid "{}" from {}'.format(pid,self.pidfile)
+                    if not args.nostart:
+                        rc = -1
+                        if (pid != '') & (pid != '0'):
+                            try:
+                                subprocess.check_call(['kill', self.killsig, pid])
+                                rc = 0
+                            except subprocess.CalledProcessError as e:
+                                rc = e.returncode
+                        if rc != 0:
+                            try:
+                                subprocess.check_call(['pkill', self.killsig, self.name])
+                            except subprocess.CalledProcessError as e:
+                                rc = e.returncode
+
+        if os.path.isfile(self.pidfile):
             os.remove(self.pidfile)
+
+        if self.execstoppost:
+            self.__run_commands(self.execstoppost)
 
 # NOTE WELL!  This is not a robust/correct sort of before/after.
 #             It's an interim until I find something better.
