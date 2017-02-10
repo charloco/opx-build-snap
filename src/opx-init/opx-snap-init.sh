@@ -40,20 +40,23 @@ if [ $MACHINETYPE == "vm" ] ; then
 fi
 
 # Add the OPX users if they don't exists
-# NOTE: Having problems with the --extrausers and groups.
-# See https://bugs/launchpad.net/ubuntu/+source/adduser/+bug/1647333
-set +e
 if [ -e /var/lib/extrausers ] ; then
     EXTRA="--extrausers"
 fi
-if ! getent group _opx_cps > /dev/null; then
-    addgroup $EXTRA --quiet --system --force-badname _opx_cps
+
+# NOTE: Having problems with the --extrausers and groups.
+# See https://bugs/launchpad.net/ubuntu/+source/adduser/+bug/1647333
+if [ -z "$EXTRA" ] ; then
+    if ! getent group _opx_cps > /dev/null; then
+        addgroup $EXTRA --quiet --system --force-badname _opx_cps
+    fi
+    if ! getent passwd  _opx_cps> /dev/null; then
+        adduser $EXTRA --quiet --system  --force-badname --no-create-home _opx_cps
+    fi
 fi
-if ! getent passwd  _opx_cps> /dev/null; then
-    adduser $EXTRA --quiet --system  --force-badname --no-create-home _opx_cps
-fi
-set -e
 
 # This MUST be the last thing we do as part of init since all other
 # start up scripts look for this directory to flag init complete.
 [ -d $PIDDIR ] || mkdir -p $PIDDIR
+
+exit 0

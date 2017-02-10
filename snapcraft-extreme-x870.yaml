@@ -12,91 +12,22 @@ apps:
   # to verify that OPX was installed and started correctly.
   test-opx:
     command: usr/bin/test-opx-hw
-    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
 
   # This command is used to auto-start and auto-stop the OPX services.
-  # The rest of the apps in this section are used to manually start
-  # and stop individual services.
-  autostart-opx:
-    command: usr/bin/start-opx-hw daemonize
+  snap-service-helper:
+    command: usr/bin/snap-service-helper --debug --exclude redis-server.service --env $SNAP/usr/bin/opx-init-env --precmd $SNAP/usr/bin/opx-snap-init --precmd $SNAP/usr/bin/start-redis-server --postcmd $SNAP/usr/bin/stop-redis-server start
     daemon: simple
-    stop-command: usr/bin/start-opx-hw stop
-    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
-
-  start-opx:
-    command: usr/bin/start-opx-hw start
-    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
-
-  stop-opx:
-    command: usr/bin/start-opx-hw stop
+    stop-command: usr/bin/pkill -SIGTERM snap-service-helper
     plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
 
   shell:
     command: bin/bash
-    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c ]
-
-  opx-snap-init:
-    command: usr/bin/opx-snap-init
-# oneshot daemons don't work in snapd yet.
-# See https://bugs.launchpad.net/snappy/+bug/1647169
-# When fixed, don't forget to take out the 'sleep forever' in the opx-snap-init command.
-#    daemon: oneshot    
-#    daemon: simple
-#    stop-command: /usr/bin/pkill -SIGKILL opx-snap-init
-
-  start-redis-server:
-    command: usr/bin/start-redis-server start
-#    daemon: forking
-#    stop-command: usr/bin/start-redis-server stop
-
-  stop-redis-server:
-    command: usr/bin/start-redis-server stop
-
-  start-cps-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-cps.service start
-#    daemon: notify
-#    stop-command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-cps.service stop
-
-  stop-cps-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-cps.service stop
-
-  start-cps-db-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-cps-db.service start
-#    daemon: simple
-#    stop-command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-cps-db.service stop
-
-  stop-cps-db-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-cps-db.service stop
-
-  start-platform-init-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-platform-init.service start
-#    daemon: oneshot
-#    stop-command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-platform-init.service stop
-
-  stop-platform-init-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-platform-init.service stop
-
-  start-pas-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-pas.service start
-#    daemon: simple
-#    stop-command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-pas.service stop
-
-  stop-pas-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-pas.service stop
-
-  start-tmpctl-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-tmpctl.service start 
-#    daemon: simple
-#    stop-command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-pas.service stop
-
-  stop-tmpctl-service:
-    command: usr/bin/snap-service-helper --env $SNAP/usr/bin/opx-init-env $SNAP/lib/systemd/system/opx-tmpctl.service stop 
     
 parts:
   opx-init:
     plugin: make
     source: src/opx-init
-    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python ]
+    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python, procps ]
     stage:
       - -etc/redis/redis.conf
   libopx-logging:
@@ -116,7 +47,6 @@ parts:
     plugin: x_dump
   opx-cps:
     source: ../opx-cps_1.0.1_amd64.deb
-    build-packages: [ python3-binaryornot ]
     stage-packages: [ libhiredis0.13 ]
     plugin: x_dump
   python-opx-cps:

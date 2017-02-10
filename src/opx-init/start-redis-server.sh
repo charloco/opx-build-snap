@@ -38,3 +38,5 @@ redis-server $SNAP_DATA/var/run/redis.conf
 touch $PIDDIR/redis-server.pid
 /bin/run-parts --verbose $SNAP/etc/redis/redis-server.post-up.d
 popd
+
+exit 0
