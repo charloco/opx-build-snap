@@ -18,3 +18,5 @@ install:
 	install -m 644 dropins/redis-server.conf $(DROPIN)/redis-server.service.d
 	install -d $(DROPIN)/opx-monitor-phy-media.service.d
 	install -m 644 dropins/opx-monitor-phy-media.conf $(DROPIN)/opx-monitor-phy-media.service.d
+	install -d $(DROPIN)/opx-pas.service.d
+	install -m 644 dropins/opx-pas.conf $(DROPIN)/opx-pas.service.d
