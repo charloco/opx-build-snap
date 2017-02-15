@@ -198,9 +198,11 @@ class Service(object):
                 noerr=True
             else:
                 noerr=False
-            if (exectype == 'oneshot'):
-                if args.debug:
-                    print 'Exec: {} {}'.format(exectype, cmd)
+            if args.debug:
+                print 'Exec: {} {}'.format(exectype, cmd)
+            if args.prompt:
+                raw_input("Press Enter to continue...")
+            if exectype == 'oneshot':
                 if not args.nostart:
                     subprocess.call(cmd.split(), env=self.svcenv)
             else:
@@ -209,11 +211,14 @@ class Service(object):
                     pid = e.pid
                 else:
                     pid = 0
-                self.__create_pid_file(pid)
-                if args.debug:
-                    print 'Exec {}: {} pid = {}'.format(exectype, cmd, pid)
+                if exectype == 'forking':
+                    self.__create_pid_file()
+                else:
+                    self.__create_pid_file(pid)
                 if pid:
                     time.sleep(1)
+        if args.quit == self.svcid:
+            sys.exit(0)
 
     def __init__(self, path):
         self.svcid = os.path.basename(path)
@@ -271,19 +276,24 @@ class Service(object):
                     pid = fo.readline()
                     pid = pid.lstrip()
                     pid = pid.rstrip()
-                    if args.debug:
-                        print 'Obtained pid "{}" from {}'.format(pid,self.pidfile)
                     if not args.nostart:
                         rc = -1
                         if (pid != '') & (pid != '0'):
+                            if args.debug:
+                                print 'Stop {} using kill {}'.format(self.svcid, pid)
                             try:
                                 subprocess.check_call(['kill', self.killsig, pid])
                                 rc = 0
                             except subprocess.CalledProcessError as e:
                                 rc = e.returncode
-                        if rc != 0:
+                        if (rc != 0) & (len(self.execstart) > 0):
+                            ix = len(self.execstart) - 1
+                            if args.debug:
+                                print 'Stop {} using pkill -f "{}"'.format(self.svcid,
+                                                                        self.execstart[ix])
                             try:
-                                subprocess.check_call(['pkill', self.killsig, self.name])
+                                subprocess.check_call(['pkill', self.killsig, '-f',
+                                                       '"' + self.execstart[ix] + '"'])
                             except subprocess.CalledProcessError as e:
                                 rc = e.returncode
 
@@ -295,11 +305,14 @@ class Service(object):
 
 # NOTE WELL!  This is not a robust/correct sort of before/after.
 #             It's an interim until I find something better.
-#             This sort assumes the "don't care" are sorted first
+#             This sort assumes that any service listed in 'before' or
+#             'after' is a member of the set being sorted.
+#             This sort assumes there are no loops or logic errors in
+#             the 'before' and 'after' assertions.
 def sort_services(services):
     sorted = [ ]
     while len(services) > 0:
-        svc = services.pop()
+        svc = services.pop(0)
         inserted = False
         if (svc.after != '') & (svc.before != ''):
             print 'Service {} sorts both After and Before.'.format(svc.name)
@@ -311,26 +324,42 @@ def sort_services(services):
 
         # After - put it as late as possible
         elif svc.after != '':
+            insertix = -1
+            afterix = -1
             for ix in range(len(sorted)):
-                if sorted[ix].after == svc.svcid:
-                    sorted.insert(ix,svc)
-                    inserted = True
-                    break
-            if not inserted:
+                if (insertix < 0) & (sorted[ix].after == svc.svcid):
+                    insertix = ix
+                elif sorted[ix].svcid == svc.after:
+                    afterix = ix
+
+            if afterix < 0:
+                if (len(services)) <= 0:
+                    print "{}: cannot find \'after\' service {}".format(svc.svcid, svc.after)
+                    os.exit(1)
+                services.append(svc)
+            elif insertix < 0:
                 sorted.append(svc)
+            else:
+                sorted.insert(ix,svc)
 
         # Before, put it as early as possible
         else:
-            for ix in range(len(sorted)-1,0,-1):
+            for ix in range(len(sorted)):
+                insertix = -1
+                beforeix = -1
                 if sorted[ix].before == svc.svcid:
-                    if ix == (len(sorted)-1):
-                        sorted.append(svc)
-                        inserted = True
-                    else:
-                        sorted.insert(ix+1,svc)
-                        inserted = True
-            if not inserted:
-                sorted.insert(0,svc)
+                    insertix = ix
+                elif sorted[ix].svcid == svc.before:
+                    beforeix = ix
+            if beforeix < 0:
+                if (len(services)) <= 0:
+                    print "{}: cannot find \'before\' service {}".format(svc.svcid, svc.before)
+                    os.exit(1)
+                services.append(svc)
+            elif insertix < (len(sorted) - 1):
+                sorted.insert(insertix+1,svc)
+            else:
+                sorted.append(svc)
 
     return sorted
 
@@ -343,6 +372,8 @@ def start_services(services):
         svc.start()
 
 def term_handler(signum, frame):
+    if args.quit:
+        return
     stop_services(services)
     if args.postcmd:
         for cmd in args.postcmd:
@@ -361,6 +392,8 @@ snapdata = os.getenv('SNAP_DATA', './test')
 parser = argparse.ArgumentParser()
 parser.add_argument('action', help='action to perform', choices=['start', 'stop', 'restart'])
 parser.add_argument('--debug', help='Enable Debug', action='store_true')
+parser.add_argument('--prompt', help='Prompt before running command.', action='store_true')
+parser.add_argument('--quit', help='Quit after starting service.')
 parser.add_argument('--nostart', help='Don\'t start tasks', action='store_true')
 parser.add_argument('--env', help='Supplemental environment file.')
 parser.add_argument('--exclude', help='Exclude service(s).', action='append')
@@ -402,21 +435,33 @@ signal.signal(signal.SIGTERM, term_handler)
 signal.signal(signal.SIGINT, term_handler)
 signal.signal(signal.SIGABRT, term_handler)
 
-if args.precmd:
-    for cmd in args.precmd:
-        try:
-            subprocess.check_call(cmd.split())
-            rc = 0
-        except subprocess.CalledProcessError as e:
-            rc = e.returncode
-    if rc:
-        os.exit(rc)
-
 # Start the services
 if (args.action == 'stop') | (args.action == 'restart'):
     stop_services(services)
+    if args.postcmd:
+        for cmd in args.precmd:
+            if args.debug:
+                print 'Exec postcmd \'{}\''.format(cmd)
+                try:
+                    subprocess.check_call(cmd.split())
+                    rc = 0
+                except subprocess.CalledProcessError as e:
+                    rc = e.returncode
     os.exit(0)
+
 if (args.action == 'start') | (args.action == 'restart'):
+    if args.precmd:
+        for cmd in args.precmd:
+            if args.debug:
+                print 'Exec precmd \'{}\''.format(cmd)
+                try:
+                    subprocess.check_call(cmd.split())
+                    rc = 0
+                except subprocess.CalledProcessError as e:
+                    rc = e.returncode
+            if rc:
+                os.exit(rc)
+
     start_services(services)
 
 # wait for termination

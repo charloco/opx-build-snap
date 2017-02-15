@@ -64,6 +64,9 @@ parts:
   libopx-sdi-sys:
     source: ../libopx-sdi-sys1_1.0.1_amd64.deb
     plugin: x_dump
+  opx-platform:
+    source: ../opx-extreme-x870_1.0.1_all.deb
+    plugin: x_dump
   opx-platform-config:
     source: ../opx-platform-config-extreme-x870_1.0.1_all.deb
     plugin: x_dump

@@ -6,15 +6,18 @@ import snapcraft.plugins.dump
 
 logger = logging.getLogger(__name__)
 
-def _replace(path, pattern, sub):
-    cpat = re.compile(pattern)
+def _replace(path, pattern, sub, ignore_if_file_contains=''):
     with open(path, 'r') as fo:
         filedata = fo.read()
+    if ignore_if_file_contains:
+        if re.search(ignore_if_file_contains, filedata) != None:
+            return
+    cpat = re.compile(pattern)
     filedata, nsubs = (re.subn(cpat, sub, filedata))
     if nsubs:
         with open(path, 'w') as fo:
             fo.write(filedata)
-        logger.info('Replaced "{}" in file {}'.format(pattern, path))
+        logger.info('Replaced {} of "{}" in file {}'.format(nsubs, pattern, path))
 
 class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
 
@@ -37,8 +40,15 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                             export='export '
                         else:
                             export=''
+                        fo.write(export + 'OPX_INSTALL_PATH=$SNAP\n')
+                        fo.write(export + 'OPX_DATA_PATH=$SNAP_DATA\n')
                         fo.write(export + 'OPX_CFG_FILE_LOCATION=$SNAP/etc/opx\n')
+                        fo.write(export + 'CPS_API_METADATA_PATH=$SNAP/usr/lib/opx/cpsmetadata\n')
                         fo.write(export + 'GOROOT=$SNAP/usr/lib/go-1.6\n')
                         fo.write(export + 'GOPATH=$SNAP\n')
                 else:
-                    _replace(fpath, '#!.*/usr/bin/', '#!/usr/bin/env ');
+                    _replace(fpath, '^#!.*?/usr/bin/bash', '#!/usr/bin/env bash')
+                    _replace(fpath, '^#!.*?/usr/bin/python', '#!/usr/bin/env python')
+                    if fpath.endswith('.sh'):
+                        _replace(fpath, '/usr/bin/', '$OPX_INSTALL_PATH/usr/bin/', '\$OPX_INSTALL_PATH')
+                        _replace(fpath, '/etc/opx/', '$OPX_INSTALL_PATH/etc/opx/', '\$OPX_INSTALL_PATH')

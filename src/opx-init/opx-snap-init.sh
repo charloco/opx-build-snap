@@ -30,19 +30,10 @@ source $SNAP/usr/bin/opx-init-env
 [ -d $SNAP_DATA/run ] || mkdir -p $SNAP_DATA/run
 [ -d $SNAP_DATA/var ] || mkdir -p $SNAP_DATA/var
 [ -d $SNAP_DATA/var/log ] || mkdir -p $SNAP_DATA/var/log
-[ -L $SNAP_DATA/var/run ] || ln -s $SNAP_DATA/run $SNAP_DATA/var/run
-
-if [ $MACHINETYPE == "vm" ] ; then
-    /usr/bin/test -d $SNAP_DATA/etc || mkdir -p $SNAP_DATA/etc
-    for f in $SNAP_DATA/etc/opx/opx-environment $SNAP_DATA/etc/opx/opx-environment.sh ; do
-        sed -i 's/\$SNAP\/etc/\$SNAP_DATA\/etc/g' $f
-    done
-fi
+[ -e $SNAP_DATA/var/run ] || ln -s $SNAP_DATA/run $SNAP_DATA/var/run
 
 # Add the OPX users if they don't exists
-if [ -e /var/lib/extrausers ] ; then
-    EXTRA="--extrausers"
-fi
+[ -e /var/lib/extrausers ] || EXTRA="--extrausers"
 
 # NOTE: Having problems with the --extrausers and groups.
 # See https://bugs/launchpad.net/ubuntu/+source/adduser/+bug/1647333
@@ -58,5 +49,3 @@ fi
 # This MUST be the last thing we do as part of init since all other
 # start up scripts look for this directory to flag init complete.
 [ -d $PIDDIR ] || mkdir -p $PIDDIR
-
-exit 0
