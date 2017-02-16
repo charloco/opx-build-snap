@@ -17,8 +17,11 @@ apps:
   # This command spawns an interactive SAI/NPU shell
   # ::help for help
   # ::exit to exit shell
-  hshell:
-    command: usr/bin/ishell.sh
+  #
+  # The following command requires opx-nas-common which is not yet supported on the x870
+  #
+  # hshell:
+  #   command: usr/bin/ishell.sh
 
   # This command is used to auto-start and auto-stop the OPX services.
   snap-service-helper:
