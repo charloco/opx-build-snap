@@ -50,5 +50,5 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                     _replace(fpath, '^#!.*?/usr/bin/bash', '#!/usr/bin/env bash')
                     _replace(fpath, '^#!.*?/usr/bin/python', '#!/usr/bin/env python')
                     if fpath.endswith('.sh'):
-                        _replace(fpath, '/usr/bin/', '$OPX_INSTALL_PATH/usr/bin/', '\$OPX_INSTALL_PATH')
-                        _replace(fpath, '/etc/opx/', '$OPX_INSTALL_PATH/etc/opx/', '\$OPX_INSTALL_PATH')
+                        _replace(fpath, '/usr/bin/', '$SNAP/usr/bin/', '\$SNAP/usr/bin/')
+                        _replace(fpath, '/etc/opx/', '$SNAP/etc/opx/', '\$SNAP/etc/opx/')

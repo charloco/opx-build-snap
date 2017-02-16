@@ -8,16 +8,23 @@ grade: devel
 confinement: devmode
 
 apps:
+
   # This command is used to run a quick sanity test on the OPX in order
   # to verify that OPX was installed and started correctly.
   test-opx:
     command: usr/bin/test-opx-hw
 
+  # This command spawns an interactive SAI/NPU shell
+  # ::help for help
+  # ::exit to exit shell
+  hshell:
+    command: usr/bin/ishell.sh
+
   # This command is used to auto-start and auto-stop the OPX services.
   snap-service-helper:
     command: usr/bin/snap-service-helper --debug --env $SNAP/usr/bin/opx-init-env --precmd $SNAP/usr/bin/opx-snap-vm-init start
-#    daemon: simple
-#    stop-command: usr/bin/pkill -SIGTERM snap-service-helper
+    daemon: simple
+    stop-command: usr/bin/pkill -SIGTERM snap-service-helper
     plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
 
   shell:
