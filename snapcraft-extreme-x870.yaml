@@ -8,10 +8,17 @@ grade: devel
 confinement: devmode
 
 apps:
+
   # This command is used to run a quick sanity test on the OPX in order
   # to verify that OPX was installed and started correctly.
   test-opx:
     command: usr/bin/test-opx-hw
+
+  # This command spawns an interactive SAI/NPU shell
+  # ::help for help
+  # ::exit to exit shell
+  hshell:
+    command: usr/bin/ishell.sh
 
   # This command is used to auto-start and auto-stop the OPX services.
   snap-service-helper:
@@ -65,10 +72,10 @@ parts:
     source: ../libopx-sdi-sys1_1.0.1_amd64.deb
     plugin: x_dump
   opx-platform:
-    source: ../opx-extreme-x870_1.0.1_all.deb
+    source: ../opx-extreme-x870_1.0.2_all.deb
     plugin: x_dump
   opx-platform-config:
-    source: ../opx-platform-config-extreme-x870_1.0.1_all.deb
+    source: ../opx-platform-config-extreme-x870_1.0.2_all.deb
     plugin: x_dump
     stage-packages: [ dmidecode ]
   opx-pas:
