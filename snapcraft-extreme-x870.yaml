@@ -75,10 +75,10 @@ parts:
     source: ../libopx-sdi-sys1_1.0.1_amd64.deb
     plugin: x_dump
   opx-platform:
-    source: ../opx-extreme-x870_1.0.2_all.deb
+    source: ../opx-extreme-x870_1.0.3_all.deb
     plugin: x_dump
   opx-platform-config:
-    source: ../opx-platform-config-extreme-x870_1.0.2_all.deb
+    source: ../opx-platform-config-extreme-x870_1.0.3_all.deb
     plugin: x_dump
     stage-packages: [ dmidecode ]
   opx-pas:

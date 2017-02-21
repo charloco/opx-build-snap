@@ -79,10 +79,10 @@ parts:
     source: ../libopx-sdi-sys-vm1_1.0.1_amd64.deb
     plugin: x_dump
   opx-platform:
-    source: ../opx-dell-vm_1.0.2_all.deb
+    source: ../opx-dell-vm_1.0.3_all.deb
     plugin: x_dump
   opx-platform-config:
-    source: ../opx-platform-config-dell-vm_1.0.2_all.deb
+    source: ../opx-platform-config-dell-vm_1.0.3_all.deb
     plugin: x_dump
   opx-pas:
     source: ../opx-pas_1.0.1_amd64.deb
@@ -119,9 +119,6 @@ parts:
     plugin: x_dump
   libopx-nas-ndi:
     source: ../libopx-nas-ndi1_1.0.1_amd64.deb
-    plugin: x_dump
-  libopx-nas-platform-vm:
-    source: ../libopx-nas-platform-vm1_1.0.1_amd64.deb
     plugin: x_dump
   libopx-nas-qos:
     source: ../libopx-nas-qos1_1.0.1_amd64.deb
