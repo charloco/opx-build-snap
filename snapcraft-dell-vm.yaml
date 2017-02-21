@@ -117,9 +117,6 @@ parts:
   libopx-nas-linux:
     source: ../libopx-nas-linux1_1.0.1_amd64.deb
     plugin: x_dump
-  libopx-nas-ndi:
-    source: ../libopx-nas-ndi1_1.0.1_amd64.deb
-    plugin: x_dump
   libopx-nas-qos:
     source: ../libopx-nas-qos1_1.0.1_amd64.deb
     plugin: x_dump
