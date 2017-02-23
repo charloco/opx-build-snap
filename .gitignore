@@ -7,3 +7,4 @@ stage
 parts
 snap/plugins/__pycache__
 stuff
+.*_build_complete
