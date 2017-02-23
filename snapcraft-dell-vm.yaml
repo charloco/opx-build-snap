@@ -106,7 +106,7 @@ parts:
     source: ../libopx-nas-acl1_1.0.1_amd64.deb
     plugin: x_dump
   libopx-nas-interface:
-    source: ../libopx-nas-interface1_1.0.1_amd64.deb
+    source: ../libopx-nas-interface1_1.0.2_amd64.deb
     plugin: x_dump
   libopx-nas-l2:
     source: ../libopx-nas-l2-1_1.0.1_amd64.deb
