@@ -130,7 +130,7 @@ parts:
     source: ../opx-nas-daemon_1.0.1_amd64.deb
     plugin: x_dump
   opx-nas-interface:
-    source: ../opx-nas-interface_1.0.1_amd64.deb
+    source: ../opx-nas-interface_1.0.2_amd64.deb
     plugin: x_dump
   opx-nas-l2:
     source: ../opx-nas-l2_1.0.1_amd64.deb
