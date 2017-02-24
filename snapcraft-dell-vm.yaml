@@ -27,6 +27,7 @@ apps:
     stop-command: usr/bin/pkill -SIGTERM snap-service-helper
     plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
 
+  # This is a debugging shell.
   shell:
     command: bin/bash
     
@@ -116,6 +117,9 @@ parts:
     plugin: x_dump
   libopx-nas-linux:
     source: ../libopx-nas-linux1_1.0.1_amd64.deb
+    plugin: x_dump
+  libopx-nas-ndi:
+    source: ../libopx-nas-ndi1_1.0.2_amd64.deb
     plugin: x_dump
   libopx-nas-qos:
     source: ../libopx-nas-qos1_1.0.1_amd64.deb

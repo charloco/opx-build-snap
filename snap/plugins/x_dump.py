@@ -17,7 +17,7 @@ def _replace(path, pattern, sub, ignore_if_file_contains=''):
     if nsubs:
         with open(path, 'w') as fo:
             fo.write(filedata)
-        logger.info('Replaced {} of "{}" in file {}'.format(nsubs, pattern, path))
+        logger.warn('Replaced {} of "{}" in file {}'.format(nsubs, pattern, path))
 
 class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
 
@@ -46,6 +46,7 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                         fo.write(export + 'CPS_API_METADATA_PATH=$SNAP/usr/lib/opx/cpsmetadata\n')
                         fo.write(export + 'GOROOT=$SNAP/usr/lib/go-1.6\n')
                         fo.write(export + 'GOPATH=$SNAP\n')
+                        logger.warn('Add Snap-specific environment vars to {}'.format(fpath))
                 else:
                     _replace(fpath, '^#!.*?/usr/bin/bash', '#!/usr/bin/env bash')
                     _replace(fpath, '^#!.*?/usr/bin/python', '#!/usr/bin/env python')

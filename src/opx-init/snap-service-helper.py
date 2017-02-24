@@ -48,6 +48,7 @@ def process_env_file( env ):
                 if args.debug:
                     print 'ENV:    {} = {}'.format(words[0].strip(), words[1].strip())
 
+# This class represents a systemctl service
 class Service(object):
 
     def __create_dir(self, newdir, mode=0777):
@@ -65,6 +66,9 @@ class Service(object):
         else:
             cmds.append(newcmd)
 
+    # Parse each line in a service file.
+    # This is an extremely lightweight service manager.  We only process
+    # those lines that are relevant to a service running inside a Snap.
     def __parse_service_line( self, line ):
         line = line.strip()
         ciline = line.lower()
@@ -304,7 +308,7 @@ class Service(object):
             self.__run_commands(self.execstoppost)
 
 # NOTE WELL!  This is not a robust/correct sort of before/after.
-#             It's an interim until I find something better.
+#             It's an interim until I come up with something better.
 #             This sort assumes that any service listed in 'before' or
 #             'after' is a member of the set being sorted.
 #             This sort assumes there are no loops or logic errors in
@@ -371,6 +375,7 @@ def start_services(services):
     for svc in services:
         svc.start()
 
+# The Snap stop command kills us with SIGTERM
 def term_handler(signum, frame):
     if args.quit:
         return
@@ -408,7 +413,7 @@ piddir = os.getenv('PIDDIR', args.piddir)
 services = [ ]
 service_dirs = [ snap + '/lib/systemd/system' ]
 
-# Find all the services
+# Find all the services in the snap
 for sdirs in service_dirs:
     for s in glob.glob(sdirs + '/*.service'):
         svc = Service(s)
