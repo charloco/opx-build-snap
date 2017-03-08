@@ -3,16 +3,55 @@ set -e
 set +x
 shopt -s nullglob
 
+ACTION="$1"
+
 $SNAP/usr/bin/opx-snap-init vm
 
 source $SNAP/usr/bin/opx-init-env
 
-[ -d $SNAP_DATA/etc/opx ] || mkdir -p $SNAP_DATA/etc/opx
-/bin/cp $SNAP/etc/opx/sai_vm_db.cfg $SNAP_DATA/etc/opx
-sed -i -e"s|/etc/opx|$SNAP_DATA/etc/opx|g" $SNAP_DATA/etc/opx/sai_vm_db.cfg
-/bin/cp $SNAP/etc/opx/*.sql $SNAP_DATA/etc/opx/
+function apply_rules {
+    udevadm control --reload-rules
+    udevadm trigger
 
-[ -d $SNAP_DATA/etc/opx/sdi ] || mkdir -p $SNAP_DATA/etc/opx/sdi
-/bin/cp $SNAP/etc/opx/sdi/*.sql $SNAP_DATA/etc/opx/sdi/
+    # Bounce the networking so new rules apply
+    systemctl restart networking
+}
 
-[ -d /etc/udev/rules.d/80-dn-virt-intf.rules ] || /bin/cp $SNAP/usr/bin/80-dn-virt-intf.rules /etc/udev/rules.d
+function uninstallRedis {
+    if $(command -v apt >/dev/null 2>&1) && $(command -v dpkg >/dev/null 2>&1) ; then
+        if dpkg --get-selections | grep -q "^redis-server[[:space:]]*install$" >/dev/null ; then
+            apt remove -y redis-server
+            apt autoremove -y
+        fi
+    fi
+}
+
+if [ "$ACTION" == "start" ] || [ -z "$ACTION" ] ; then
+
+    uninstallRedis
+
+    [ -d $SNAP_DATA/etc/opx ] || mkdir -p $SNAP_DATA/etc/opx
+    /bin/cp $SNAP/etc/opx/sai_vm_db.cfg $SNAP_DATA/etc/opx
+    sed -i -e"s|/etc/opx|$SNAP_DATA/etc/opx|g" $SNAP_DATA/etc/opx/sai_vm_db.cfg
+    /bin/cp $SNAP/etc/opx/*.sql $SNAP_DATA/etc/opx/
+
+    [ -d $SNAP_DATA/etc/opx/sdi ] || mkdir -p $SNAP_DATA/etc/opx/sdi
+    /bin/cp $SNAP/etc/opx/sdi/*.sql $SNAP_DATA/etc/opx/sdi/
+
+    [ -d /etc/udev/rules.d ] || mkdir -p /etc/udev/rules.d
+    if [ ! -f /etc/udev/rules.d/80-dn-virt-intf.rules ] ; then
+        /bin/cp $SNAP/etc/opx/rules/80-dn-enp-virt-intf.rules /etc/udev/rules.d/80-dn-virt-intf.rules
+        apply_rules
+    fi
+
+elif [ "$ACTION" == "stop" ] ; then
+
+    rm -f /etc/udev/rules.d/80-dn-virt-intf.rules
+    apply_rules
+
+else
+    echo
+    echo "Unrecognized action: $ACTION"
+    echo
+    exit 1
+fi

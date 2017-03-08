@@ -320,7 +320,7 @@ def sort_services(services):
         inserted = False
         if (svc.after != '') & (svc.before != ''):
             print 'Service {} sorts both After and Before.'.format(svc.name)
-            os.exit(1)
+            sys.exit(1)
 
         # Don't care, put it as early as possible
         elif (svc.after == '') & (svc.before == ''):
@@ -339,7 +339,7 @@ def sort_services(services):
             if afterix < 0:
                 if (len(services)) <= 0:
                     print "{}: cannot find \'after\' service {}".format(svc.svcid, svc.after)
-                    os.exit(1)
+                    sys.exit(1)
                 services.append(svc)
             elif insertix < 0:
                 sorted.append(svc)
@@ -358,7 +358,7 @@ def sort_services(services):
             if beforeix < 0:
                 if (len(services)) <= 0:
                     print "{}: cannot find \'before\' service {}".format(svc.svcid, svc.before)
-                    os.exit(1)
+                    sys.exit(1)
                 services.append(svc)
             elif insertix < (len(sorted) - 1):
                 sorted.insert(insertix+1,svc)
@@ -440,32 +440,33 @@ signal.signal(signal.SIGTERM, term_handler)
 signal.signal(signal.SIGINT, term_handler)
 signal.signal(signal.SIGABRT, term_handler)
 
-# Start the services
+# Stop the services
 if (args.action == 'stop') | (args.action == 'restart'):
     stop_services(services)
-    if args.postcmd:
+    rc = 0
+    if args.precmd:
         for cmd in args.precmd:
             if args.debug:
                 print 'Exec postcmd \'{}\''.format(cmd)
-                try:
-                    subprocess.check_call(cmd.split())
-                    rc = 0
-                except subprocess.CalledProcessError as e:
-                    rc = e.returncode
-    os.exit(0)
+            try:
+                subprocess.check_call(cmd.split())
+                rc = 0
+            except subprocess.CalledProcessError as e:
+                rc = e.returncode
+    sys.exit(rc)
 
 if (args.action == 'start') | (args.action == 'restart'):
     if args.precmd:
         for cmd in args.precmd:
             if args.debug:
                 print 'Exec precmd \'{}\''.format(cmd)
-                try:
-                    subprocess.check_call(cmd.split())
-                    rc = 0
-                except subprocess.CalledProcessError as e:
-                    rc = e.returncode
+            try:
+                subprocess.check_call(cmd.split())
+                rc = 0
+            except subprocess.CalledProcessError as e:
+                rc = e.returncode
             if rc:
-                os.exit(rc)
+                sys.exit(rc)
 
     start_services(services)
 
