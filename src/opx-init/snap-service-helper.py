@@ -256,6 +256,7 @@ class Service(object):
                                                                      self.after,
                                                                      self.before,
                                                                      self.pidfile)
+
     def start(self):
         if args.debug:
             print 'Starting {}'.format(self.svcid)
@@ -315,15 +316,39 @@ class Service(object):
 #             the 'before' and 'after' assertions.
 def sort_services(services):
     sorted = [ ]
+    iteration = 0
+    lastlen = 0
     while len(services) > 0:
+        if lastlen != len(services):
+            lastlen = len(services)
+            iteration = 0
+        else:
+            iteration += 1
+            if iteration > len(services):
+                print 'Unable to sort list - infinite loop.'
+                sys.exit(1)
         svc = services.pop(0)
+        if args.debugsort:
+            print 'Sorting service {}... Before "{}" After "{}"'.format(svc.svcid,
+                                                                        svc.before,
+                                                                        svc.after)
         inserted = False
         if (svc.after != '') & (svc.before != ''):
-            print 'Service {} sorts both After and Before.'.format(svc.name)
+            print 'Service {} specifies both After and Before.'.format(svc.svcid)
+            sys.exit(1)
+        elif len(svc.after.split()) > 1:
+            print 'Service {} specifies multiple After: {}'.format(svc.svcid,
+                                                                   svc.after)
+            sys.exit(1)
+        elif len(svc.before.split()) > 1:
+            print 'Service {} specifies multiple Before: {}'.format(svc.svcid,
+                                                                    svc.before)
             sys.exit(1)
 
         # Don't care, put it as early as possible
         elif (svc.after == '') & (svc.before == ''):
+            if args.debugsort:
+                print '    Insert {} at head of list.'.format(svc.svcid)
             sorted.insert(0,svc)
 
         # After - put it as late as possible
@@ -331,6 +356,11 @@ def sort_services(services):
             insertix = -1
             afterix = -1
             for ix in range(len(sorted)):
+                if args.debugsort:
+                    print '  check {}/{} before "{}" After "{}"'.format(ix,
+                                                                        sorted[ix].svcid,
+                                                                        sorted[ix].before,
+                                                                        sorted[ix].after)
                 if (insertix < 0) & (sorted[ix].after == svc.svcid):
                     insertix = ix
                 elif sorted[ix].svcid == svc.after:
@@ -338,17 +368,30 @@ def sort_services(services):
 
             if afterix < 0:
                 if (len(services)) <= 0:
-                    print "{}: cannot find \'after\' service {}".format(svc.svcid, svc.after)
+                    print "{}: cannot find \'after\' service {}".format(svc.svcid,
+                                                                        svc.after)
                     sys.exit(1)
+                if args.debugsort:
+                    print '    {}: cannot be sorted yet; will try later.'.format(svc.svcid)
                 services.append(svc)
             elif insertix < 0:
+                if args.debugsort:
+                    print '    {}: placed at tail of list.'.format(svc.svcid)
                 sorted.append(svc)
             else:
+                if args.debugsort:
+                    print '    {}: placed at {}/{}.'.format(svc.svcid,
+                                                            ix, len(sorted))
                 sorted.insert(ix,svc)
 
         # Before, put it as early as possible
         else:
             for ix in range(len(sorted)):
+                if args.debugsort:
+                    print '  check {}/{} Before "{}" after "{}"'.format(ix,
+                                                                        sorted[ix].svcid,
+                                                                        sorted[ix].before,
+                                                                        sorted[ix].after)
                 insertix = -1
                 beforeix = -1
                 if sorted[ix].before == svc.svcid:
@@ -357,14 +400,31 @@ def sort_services(services):
                     beforeix = ix
             if beforeix < 0:
                 if (len(services)) <= 0:
-                    print "{}: cannot find \'before\' service {}".format(svc.svcid, svc.before)
+                    print "{}: cannot find \'before\' service {}".format(svc.svcid,
+                                                                         svc.before)
                     sys.exit(1)
+                if args.debugsort:
+                    print '{}: cannot be sorted yet; will try later.'.format(svc.svcid)
                 services.append(svc)
             elif insertix < (len(sorted) - 1):
+                if args.debugsort:
+                    print '    {}: placed at {}/{}.'.format(svc.svcid,
+                                                            insertix+1,
+                                                            len(sorted))
                 sorted.insert(insertix+1,svc)
             else:
+                if args.debugsort:
+                    print '    {}: placed at tail of list.'.format(svc.svcid)
                 sorted.append(svc)
 
+    if args.debugsort:
+        print
+        print 'Sorted list...'
+        for ix in range(len(sorted)):
+            print '{}/{}: before "{}" after "{}"'.format(ix,
+                                                         sorted[ix].svcid,
+                                                         sorted[ix].before,
+                                                         sorted[ix].after)
     return sorted
 
 def stop_services(services):
@@ -397,6 +457,7 @@ snapdata = os.getenv('SNAP_DATA', './test')
 parser = argparse.ArgumentParser()
 parser.add_argument('action', help='action to perform', choices=['start', 'stop', 'restart'])
 parser.add_argument('--debug', help='Enable Debug', action='store_true')
+parser.add_argument('--debugsort', help='Enable Sort Debug', action='store_true')
 parser.add_argument('--prompt', help='Prompt before running command.', action='store_true')
 parser.add_argument('--quit', help='Quit after starting service.')
 parser.add_argument('--nostart', help='Don\'t start tasks', action='store_true')
