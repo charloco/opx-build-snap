@@ -40,7 +40,11 @@ if [ "$ACTION" == "start" ] || [ -z "$ACTION" ] ; then
 
     [ -d /etc/udev/rules.d ] || mkdir -p /etc/udev/rules.d
     if [ ! -f /etc/udev/rules.d/80-dn-virt-intf.rules ] ; then
-        /bin/cp $SNAP/etc/opx/rules/80-dn-enp-virt-intf.rules /etc/udev/rules.d/80-dn-virt-intf.rules
+        if ls /sys/class/net/enp0* | grep -q "enp" >/dev/null ; then
+            /bin/cp $SNAP/etc/opx/rules/80-dn-enp-virt-intf.rules /etc/udev/rules.d/80-dn-virt-intf.rules
+        elif ls /sys/class/net/eth* | grep -q "eth" >/dev/null ; then
+            /bin/cp $SNAP/etc/opx/rules/80-dn-eth-virt-intf.rules /etc/udev/rules.d/80-dn-virt-intf.rules
+        fi
         apply_rules
     fi
 

@@ -25,7 +25,7 @@ apps:
     command: usr/bin/snap-service-helper --debug --env $SNAP/usr/bin/opx-init-env --precmd $SNAP/usr/bin/opx-snap-vm-init-start --postcmd $SNAP/usr/bin/opx-snap-vm-init-stop start
     daemon: simple
     stop-command: usr/bin/pkill -SIGTERM snap-service-helper
-    plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
+    plugs: [ network, network-control, network-bind, network-setup-observe, network-setup-control, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
 
   # This is a debugging shell.
   shell:
