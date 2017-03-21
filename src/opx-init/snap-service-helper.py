@@ -386,14 +386,14 @@ def sort_services(services):
 
         # Before, put it as early as possible
         else:
+            insertix = -1
+            beforeix = -1
             for ix in range(len(sorted)):
                 if args.debugsort:
                     print '  check {}/{} Before "{}" after "{}"'.format(ix,
                                                                         sorted[ix].svcid,
                                                                         sorted[ix].before,
                                                                         sorted[ix].after)
-                insertix = -1
-                beforeix = -1
                 if sorted[ix].before == svc.svcid:
                     insertix = ix
                 elif sorted[ix].svcid == svc.before:

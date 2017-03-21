@@ -29,6 +29,11 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                 if os.path.islink(fpath):
                     continue
                 if is_binary(fpath):
+                    if ((self.name == 'opx-broadcom-sai') &
+                        fpath.endswith('libsai.so.1.0') &
+                        (not os.path.islink(fpath[:-2]))):
+                        os.symlink('libsai.so.1.0', fpath[:-2])
+                        logger.warn('Add symlink {} ==> {}'.format('libsai.so.1', fpath))
                     continue
                 if 'environment' in fpath:
                     _replace(fpath, '=/usr/', '=$SNAP/usr/')

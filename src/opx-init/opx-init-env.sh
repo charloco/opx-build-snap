@@ -11,3 +11,5 @@ function waitforopxinit {
         sleep 1
     done
 }
+
+OPENNSL_CONFIG_FILE=$SNAP/etc/opennsl/opennsl.cfg

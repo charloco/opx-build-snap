@@ -21,3 +21,5 @@ install:
 	install -m 644 dropins/opx-monitor-phy-media.conf $(DROPIN)/opx-monitor-phy-media.service.d
 	install -d $(DROPIN)/opx-pas.service.d
 	install -m 644 dropins/opx-pas.conf $(DROPIN)/opx-pas.service.d
+	install -d $(DROPIN)/opx-platform-init.service.d
+	install -m 644 dropins/opx-platform-init.conf $(DROPIN)/opx-platform-init.service.d

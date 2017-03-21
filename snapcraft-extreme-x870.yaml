@@ -20,12 +20,15 @@ apps:
   #
   # The following command requires opx-nas-common which is not yet supported on the x870
   #
-  # hshell:
-  #   command: usr/bin/ishell.sh
+  hshell:
+    command: usr/bin/ishell.sh
 
   # This command is used to auto-start and auto-stop the OPX services.
+  #
+  # Temporarily exclude opx-acl and opx-qos since they are not working on hardware yet.
+  #
   snap-service-helper:
-    command: usr/bin/snap-service-helper --debug --env $SNAP/usr/bin/opx-init-env --precmd $SNAP/usr/bin/opx-snap-init start
+    command: usr/bin/snap-service-helper --debug --env $SNAP/usr/bin/opx-init-env --precmd $SNAP/usr/bin/opx-snap-init --exclude opx-qos-init.service --exclude opx-acl-init.service start
     daemon: simple
     stop-command: usr/bin/pkill -SIGTERM snap-service-helper
     plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
@@ -37,7 +40,7 @@ parts:
   opx-init:
     plugin: make
     source: src/opx-init
-    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python, procps ]
+    stage-packages: [ redis-server, libhiredis0.13, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python, procps ]
     stage:
       - -etc/redis/redis.conf
   libopx-logging:
@@ -57,7 +60,6 @@ parts:
     plugin: x_dump
   opx-cps:
     source: ../opx-cps_1.0.1_amd64.deb
-    stage-packages: [ libhiredis0.13 ]
     plugin: x_dump
   python-opx-cps:
     source: ../python-opx-cps_1.0.1_amd64.deb
@@ -74,6 +76,36 @@ parts:
   libopx-sdi-sys:
     source: ../libopx-sdi-sys1_1.0.1_amd64.deb
     plugin: x_dump
+  libopx-nas-common:
+    source: ../libopx-nas-common1_1.0.1_amd64.deb
+    plugin: x_dump
+  libopx-nas-ndi-x870:
+    source: ../libopx-nas-ndi1-x870_1.0.2_amd64.deb
+    plugin: x_dump
+  libopx-nas-linux:
+    source: ../libopx-nas-linux1_1.0.1_amd64.deb
+    plugin: x_dump
+  libopx-nas-interface:
+    source: ../libopx-nas-interface1_1.0.2_amd64.deb
+    plugin: x_dump
+  libopx-nas-acl:
+    source: ../libopx-nas-acl1_1.0.1_amd64.deb
+    plugin: x_dump
+  libopx-nas-l2:
+    source: ../libopx-nas-l2-1_1.0.1_amd64.deb
+    plugin: x_dump
+  libopx-nas-l3:
+    source: ../libopx-nas-l3-1_1.0.1_amd64.deb
+    plugin: x_dump
+  libopx-nas-qos:
+    source: ../libopx-nas-qos1_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-logging:
+    source: ../opx-logging_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-cps:
+    source: ../opx-cps_1.0.1_amd64.deb
+    plugin: x_dump
   opx-platform:
     source: ../opx-extreme-x870_1.0.3_all.deb
     plugin: x_dump
@@ -86,4 +118,31 @@ parts:
     plugin: x_dump
   opx-tempctl:
     source: ../opx-tmpctl_1.0.1_all.deb
+    plugin: x_dump
+  opx-broadcom-sai:
+    source: ftp://bldecos-1.extremenetworks.com/opx-ubuntu/opx-broadcom-sai_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-nas-daemon:
+    source: ../opx-nas-daemon_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-nas-common:
+    source: ../opx-nas-common_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-nas-interface:
+    source: ../opx-nas-interface_1.0.2_amd64.deb
+    plugin: x_dump
+  opx-nas-linux:
+    source: ../opx-nas-linux_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-nas-l2:
+    source: ../opx-nas-l2_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-nas-l3:
+    source: ../opx-nas-l3_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-nas-acl:
+    source: ../opx-nas-acl_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-nas-qos:
+    source: ../opx-nas-qos_1.0.1_amd64.deb
     plugin: x_dump
