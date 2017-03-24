@@ -33,7 +33,12 @@ source $SNAP/usr/bin/opx-init-env
 [ -e $SNAP_DATA/var/run ] || ln -s $SNAP_DATA/run $SNAP_DATA/var/run
 
 # Add the OPX users if they don't exists
-test -d /var/lib/extrausers && EXTRA="--extrausers"
+if [ -d /var/lib/extrausers ] ; then
+    # If on Ubuntu Classic, don't use --extrausers
+    if [[ $(mount | grep /var/lib/extrausers) != *\(ro* ]] ; then
+        EXTRA="--extrausers"
+    fi
+fi
 
 # NOTE: Having problems with the --extrausers and groups.
 # See https://bugs/launchpad.net/ubuntu/+source/adduser/+bug/1647333
