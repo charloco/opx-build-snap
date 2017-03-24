@@ -35,7 +35,7 @@ parts:
   opx-init:
     plugin: make
     source: src/opx-init
-    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python, procps ]
+    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python, libpython2.7, procps ]
     stage:
       - -etc/redis/redis.conf
   libopx-logging:
