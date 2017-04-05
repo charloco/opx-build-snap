@@ -123,6 +123,8 @@ class Service(object):
             self.before = line.split('=',1)[-1]
         elif ciline.startswith('wants='):
             self.wants = line.split('=',1)[-1]
+        elif ciline.startswith('requires='):
+            self.requires = line.split('=',1)[-1]
         elif ciline.startswith('killsignal='):
             self.killsig = '-' + line.split('=',1)[-1]
         elif ciline.startswith('environmentfile='):
@@ -228,6 +230,7 @@ class Service(object):
         self.svcid = os.path.basename(path)
         self.after = ''
         self.before = ''
+        self.requires = ''
         self.pidfile = ''
         self.envfile = ''
         self.svcenv = os.environ.copy()
@@ -246,6 +249,14 @@ class Service(object):
             self.sort_dont_care = 0
         else:
             self.sort_dont_care = 1
+        if self.requires != '':
+            if self.after == '':
+                self.after = self.requires
+            elif self.requires != self.after:
+                print 'Service {} Requires {} conflicts with After: {}'.format(self.svcid,
+                                                                               self.requires,
+                                                                               self.after)
+                sys.exit(1)
         if not self.pidfile:
             self.pidfile = piddir + '/' + self.name + '.pid'
         if self.envfile:
@@ -310,10 +321,14 @@ class Service(object):
 
 # NOTE WELL!  This is not a robust/correct sort of before/after.
 #             It's an interim until I come up with something better.
+#
 #             This sort assumes that any service listed in 'before' or
 #             'after' is a member of the set being sorted.
 #             This sort assumes there are no loops or logic errors in
 #             the 'before' and 'after' assertions.
+#
+#             This sort assumes that if 'Requires' is used, then
+#             it matches the 'after' clause.
 def sort_services(services):
     sorted = [ ]
     iteration = 0

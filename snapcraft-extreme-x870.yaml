@@ -80,7 +80,7 @@ parts:
     source: ../libopx-nas-common1_1.0.1_amd64.deb
     plugin: x_dump
   libopx-nas-ndi-x870:
-    source: ../libopx-nas-ndi1-x870_1.0.2_amd64.deb
+    source: ../libopx-nas-ndi1-using-broadcom_1.0.3_amd64.deb
     plugin: x_dump
   libopx-nas-linux:
     source: ../libopx-nas-linux1_1.0.1_amd64.deb

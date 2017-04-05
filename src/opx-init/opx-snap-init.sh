@@ -13,16 +13,7 @@ fi
 
 if [ $MACHINETYPE == "hw" ] ; then
     # Start platform-specific modules
-    # NOTE: There are problems with Ubuntu-Core running custom kernel.
-    #       The path to kernel modules is not set up correctly
-    #       See https://bugs.launchpad.net/snapcraft/+bug/1658177
-    set +e
-    for m in $SNAP/etc/modules-load.d/* ; do
-        while read mod ; do
-            modprobe $mod 2>/dev/null 1>&2
-        done < $m
-    done
-    set -e
+    systemctl restart systemd-modules-load
 fi
 
 source $SNAP/usr/bin/opx-init-env
