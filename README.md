@@ -4,6 +4,10 @@ This repository includes files necessary to generate Ubuntu Snaps for OpenSwitch
 
 The Snaps are platform-specific, so there will be one Snap for each supported platform.
 
+## Vagrant File
+
+The directory opxUbuntuDevel contains a Vagrantfile that can be used to create a development machine on Ubuntu/Xenial.
+
 ## Building a OpenSwitch Snap for Ubuntu-Core.
 
 The process to build a Snap follows.
