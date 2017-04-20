@@ -1,0 +1,274 @@
+#!/usr/bin/env python
+
+#
+# Copyright (c) 2017 Extreme Networks, Inc.
+#
+
+#
+# This module manages systemd services found in a snap.
+#
+
+import os
+import signal
+import re
+import time
+import sys
+import glob
+import subprocess
+import argparse
+from operator import attrgetter
+from snap_service_class import Service
+
+# NOTE WELL!  This is not a robust/correct sort of before/after.
+#             It's an interim until I come up with something better.
+#
+#             This sort assumes that any service listed in 'before' or
+#             'after' is a member of the set being sorted.
+#             This sort assumes there are no loops or logic errors in
+#             the 'before' and 'after' assertions.
+#
+#             This sort assumes that if 'Requires' is used, then
+#             it matches the 'after' clause.
+def sort_services(services):
+    sorted = [ ]
+    iteration = 0
+    lastlen = 0
+    while len(services) > 0:
+        if lastlen != len(services):
+            lastlen = len(services)
+            iteration = 0
+        else:
+            iteration += 1
+            if iteration > len(services):
+                print 'Unable to sort list - infinite loop.'
+                sys.exit(1)
+        svc = services.pop(0)
+        if args.debugsort:
+            print 'Sorting service {}... Before "{}" After "{}"'.format(svc.svcid,
+                                                                        svc.before,
+                                                                        svc.after)
+        inserted = False
+        if (svc.after != '') & (svc.before != ''):
+            print 'Service {} specifies both After and Before.'.format(svc.svcid)
+            sys.exit(1)
+        elif len(svc.after.split()) > 1:
+            print 'Service {} specifies multiple After: {}'.format(svc.svcid,
+                                                                   svc.after)
+            sys.exit(1)
+        elif len(svc.before.split()) > 1:
+            print 'Service {} specifies multiple Before: {}'.format(svc.svcid,
+                                                                    svc.before)
+            sys.exit(1)
+
+        # Don't care, put it as early as possible
+        elif (svc.after == '') & (svc.before == ''):
+            if args.debugsort:
+                print '    Insert {} at head of list.'.format(svc.svcid)
+            sorted.insert(0,svc)
+
+        # After - put it as late as possible
+        elif svc.after != '':
+            insertix = -1
+            afterix = -1
+            for ix in range(len(sorted)):
+                if args.debugsort:
+                    print '  check {}/{} before "{}" After "{}"'.format(ix,
+                                                                        sorted[ix].svcid,
+                                                                        sorted[ix].before,
+                                                                        sorted[ix].after)
+                if (insertix < 0) & (sorted[ix].after == svc.svcid):
+                    insertix = ix
+                elif sorted[ix].svcid == svc.after:
+                    afterix = ix
+
+            if afterix < 0:
+                if (len(services)) <= 0:
+                    print "{}: cannot find \'after\' service {}".format(svc.svcid,
+                                                                        svc.after)
+                    sys.exit(1)
+                if args.debugsort:
+                    print '    {}: cannot be sorted yet; will try later.'.format(svc.svcid)
+                services.append(svc)
+            elif insertix < 0:
+                if args.debugsort:
+                    print '    {}: placed at tail of list.'.format(svc.svcid)
+                sorted.append(svc)
+            else:
+                if args.debugsort:
+                    print '    {}: placed at {}/{}.'.format(svc.svcid,
+                                                            ix, len(sorted))
+                sorted.insert(ix,svc)
+
+        # Before, put it as early as possible
+        else:
+            insertix = -1
+            beforeix = -1
+            for ix in range(len(sorted)):
+                if args.debugsort:
+                    print '  check {}/{} Before "{}" after "{}"'.format(ix,
+                                                                        sorted[ix].svcid,
+                                                                        sorted[ix].before,
+                                                                        sorted[ix].after)
+                if sorted[ix].before == svc.svcid:
+                    insertix = ix
+                elif sorted[ix].svcid == svc.before:
+                    beforeix = ix
+            if beforeix < 0:
+                if (len(services)) <= 0:
+                    print "{}: cannot find \'before\' service {}".format(svc.svcid,
+                                                                         svc.before)
+                    sys.exit(1)
+                if args.debugsort:
+                    print '{}: cannot be sorted yet; will try later.'.format(svc.svcid)
+                services.append(svc)
+            elif insertix < (len(sorted) - 1):
+                if args.debugsort:
+                    print '    {}: placed at {}/{}.'.format(svc.svcid,
+                                                            insertix+1,
+                                                            len(sorted))
+                sorted.insert(insertix+1,svc)
+            else:
+                if args.debugsort:
+                    print '    {}: placed at tail of list.'.format(svc.svcid)
+                sorted.append(svc)
+
+    if args.debugsort:
+        print
+        print 'Sorted list...'
+        for ix in range(len(sorted)):
+            print '{}/{}: before "{}" after "{}"'.format(ix,
+                                                         sorted[ix].svcid,
+                                                         sorted[ix].before,
+                                                         sorted[ix].after)
+    return sorted
+
+def stop_services(services):
+    for svc in reversed(services):
+        svc.stop()
+
+def start_services(services):
+    for svc in services:
+        svc.start()
+
+def process_env_file( env ):
+    if args.debug:
+        print 'ENV: using file {}'.format(env)
+    with open(env) as f:
+        for line in f:
+            line = line.lstrip()
+            line = line.rstrip()
+            if line.startswith("#"):
+                continue
+            if "=" in line:
+                words=line.split('=')
+                var=words[0].strip()
+                val=os.path.expandvars(words[1].strip())
+                os.environ[var] = val
+                if args.debug:
+                    print 'ENV:    {} = {}'.format(var,val)
+
+# The Snap stop command kills us with SIGTERM
+def term_handler(signum, frame):
+    if args.quit:
+        return
+    stop_services(services)
+    if args.postcmd:
+        for cmd in args.postcmd:
+            try:
+                subprocess.check_call(cmd.split())
+                rc = 0
+            except subprocess.CalledProcessError as e:
+                rc = e.returncode
+
+#
+# Main
+#
+
+snap = os.getenv('SNAP', './test')
+snapdata = os.getenv('SNAP_DATA', './test')
+parser = argparse.ArgumentParser()
+parser.add_argument('action', help='action to perform', choices=['start', 'stop', 'restart'])
+parser.add_argument('--debug', help='Enable Debug', action='store_true')
+parser.add_argument('--debugsort', help='Enable Sort Debug', action='store_true')
+parser.add_argument('--prompt', help='Prompt before running command.', action='store_true')
+parser.add_argument('--quitafter', help='Quit after starting service.')
+parser.add_argument('--nostart', help='Don\'t start tasks', action='store_true')
+parser.add_argument('--env', help='Supplemental environment file.')
+parser.add_argument('--exclude', help='Exclude service(s).', action='append')
+parser.add_argument('--piddir',  help='PID directory', default=snapdata+'/var/run/opx/pids')
+parser.add_argument('--precmd',  help='Command(s) to run before starting services', action='append')
+parser.add_argument('--postcmd',  help='Command(s) to run after stopping services', action='append')
+args = parser.parse_args()
+if args.env:
+     process_env_file(args.env)
+piddir = os.getenv('PIDDIR', args.piddir)
+if not os.path.exists(piddir):
+    try:
+        os.makedirs(piddir)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
+
+services = [ ]
+service_dirs = [ snap + '/lib/systemd/system' ]
+
+# Find all the services in the snap
+for sdirs in service_dirs:
+    for s in glob.glob(sdirs + '/*.service'):
+        svc = Service(s, args.debug, args.quitafter, args.prompt,
+                      args.nostart, piddir)
+        if (args.exclude != None):
+            if svc.svcid in args.exclude:
+                if args.debug:
+                    print 'Excluding {}'.format(svc.svcid)
+                continue
+        services.append(svc)
+
+# Sort so 'dont care' come first
+services.sort(key=attrgetter('sort_dont_care'))
+
+# Sort for before/after
+services = sort_services(services)
+
+if args.debug:
+    print
+    print 'Managing the following services...'
+    for svc in services:
+        svc.dump()
+
+signal.signal(signal.SIGTERM, term_handler)
+signal.signal(signal.SIGINT, term_handler)
+signal.signal(signal.SIGABRT, term_handler)
+
+# Stop the services
+if (args.action == 'stop') | (args.action == 'restart'):
+    stop_services(services)
+    rc = 0
+    if args.precmd:
+        for cmd in args.precmd:
+            if args.debug:
+                print 'Exec postcmd \'{}\''.format(cmd)
+            try:
+                subprocess.check_call(cmd.split())
+                rc = 0
+            except subprocess.CalledProcessError as e:
+                rc = e.returncode
+    sys.exit(rc)
+
+if (args.action == 'start') | (args.action == 'restart'):
+    if args.precmd:
+        for cmd in args.precmd:
+            if args.debug:
+                print 'Exec precmd \'{}\''.format(cmd)
+            try:
+                subprocess.check_call(cmd.split())
+                rc = 0
+            except subprocess.CalledProcessError as e:
+                rc = e.returncode
+            if rc:
+                sys.exit(rc)
+
+    start_services(services)
+
+# wait for termination
+signal.pause()

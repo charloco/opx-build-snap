@@ -32,17 +32,17 @@ apps:
     daemon: simple
     stop-command: usr/bin/pkill -SIGTERM snap-service-helper
     plugs: [ network, network-control, network-bind, network-setup-observe, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
-
-  shell:
-    command: bin/bash
     
 parts:
   opx-init:
     plugin: dump
     source: src/opx-init
-    stage-packages: [ redis-server, libhiredis0.13, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python, procps ]
+    stage-packages: [ redis-server, libhiredis0.13, i2c-tools, binutils, file, strace, iputils-ping, traceroute, python, procps ]
     stage:
       - -etc/redis/redis.conf
+  snap-service:
+    plugin: dump
+    source: src/snap-service
   libopx-logging:
     source: ../libopx-logging1_1.0.1_amd64.deb 
     plugin: x_dump
