@@ -31,8 +31,11 @@ def snapify_line( line ):
 def service_name( service ):
     return service.split('.')[0]
 
-def write_command(cmdid, cmd, verbose, waitsfor=False, init='', daemon='',
-                  follows='', after='', requires='', stop='', stoppost=''):
+def default_pidfile(name):
+    return '{}/{}'.format(args.piddir, name)
+
+def apps_write_command(cmdid, cmd, verbose, waitsfor=False, init='', daemon='',
+                       follows='', after='', requires='', stop='', stoppost=''):
     global outf
     global nodaemon
     restart=''
@@ -76,6 +79,33 @@ def write_command(cmdid, cmd, verbose, waitsfor=False, init='', daemon='',
     if stoppost:
         outf.write('{}    post-stop-command: {}\n'.format('#', stoppost))
     outf.write('\n')
+
+def shell_comment(comment):
+     outf.write('\n#\n# {}\n#\n'.format(comment));
+
+def shell_write_command(cmd):
+    if cmd.startswith('-'):
+        outf.write('{} || true\n'.format(cmd[1:]))
+    else:
+        outf.write('{}\n'.format(cmd))
+
+def shell_write_helper(myid, cmd, exectype='simple', env='', pid=''):
+    if args.delay:
+        background = '&\nsleep {}'.format(args.delay)
+    else:
+        background = '&'
+    outf.write('$SNAP/usr/bin/service-helper')
+    if args.verbose:
+        outf.write(' --verbose')
+    if exectype == 'notify':
+        outf.write(' --notify')
+    elif exectype == 'forking':
+        background = ''
+    if env:
+        outf.write(' --env {}'.format(env))
+    if pid:
+        outf.write(' --pidfile {}'.format(pid))
+    outf.write(' --cmd "{}" {} {}\n'.format(cmd, myid, background))
 
 # This class represents a systemctl service
 class Service(object):
@@ -220,7 +250,7 @@ class Service(object):
         self.pidfile = ''
         self.envfile = ''
         self.svcenv = os.environ.copy()
-        self.exectype = ''
+        self.exectype = 'simple'
         self.killsig = '-SIGTERM'
         self.execstart = [ ]
         self.execstartpre = [ ]
@@ -265,7 +295,7 @@ class Service(object):
                                                                      self.before,
                                                                      self.pidfile)
 
-    def command(self, verbose, initcmd):
+    def apps_command(self, verbose, initcmd):
         mycmd = ''
         dtype = ''
         stop = ''
@@ -283,9 +313,9 @@ class Service(object):
             if stop:
                 stop += ' && '
             stop += cmd
-        write_command(self.name, mycmd, verbose, init=initcmd, daemon=dtype,
-                      waitsfor=waits, after=self.after, requires=self.requires,
-                      stop=stop)
+        apps_write_command(self.name, mycmd, verbose, init=initcmd, daemon=dtype,
+                           waitsfor=waits, after=self.after, requires=self.requires,
+                           stop=stop)
 
         if self.execstartpost:
             mycmd = '--requires {} '.format(self.name)
@@ -295,9 +325,59 @@ class Service(object):
                     mycmd += ' --precmd \\\"{} \\\"'.format(postcmd)
                 else:
                     mycmd += ' --cmd \\\"{} \\\"'.format(postcmd)
-            write_command('{}-post'.format(self.name), mycmd, verbose,
-                          waitsfor=True, daemon='oneshot')
+            apps_write_command('{}-post'.format(self.name), mycmd, verbose,
+                               waitsfor=True, daemon='oneshot')
 
+    def shell_service_start(self):
+        shell_comment(self.svcid)
+        if not args.nodaemon:
+            shell_write_command('systemd-notify --status="Starting {}..."'.format(self.svcid))
+        for newdir in self.mkdirs:
+            shell_write_command(newdir)
+        for precmd in self.execstartpre:
+            shell_write_command(precmd)
+        if self.exectype == 'oneshot':
+            shell_write_command(self.execstart[0])
+        else:
+            if self.pidfile:
+                pidfile = self.pidfile
+            else:
+                pidfile = default_pidfile(self.name)
+            shell_write_helper(self.name, self.execstart[0],
+                               exectype=self.exectype,
+                               env=self.envfile,
+                               pid=pidfile)
+        for postcmd in self.execstartpost:
+            shell_write_command(postcmd)
+
+    def shell_service_stop(self, indent=''):
+        if self.exectype == 'oneshot':
+            return
+        if not args.nodaemon:
+            shell_write_command('{}systemd-notify status="Stopping {}"'.format(indent,self.svcid))
+        for precmd in self.execstoppre:
+            if indent:
+                outf.write(indent)
+            shell_write_command(precmd)
+        if self.execstop:
+            if indent:
+                outf.write(indent)
+            if self.execstop[0].startswith('-'):
+                shell_write_command(self.execstop[0])
+            else:
+                shell_write_command('-' + self.execstop[0])
+        else:
+            if indent:
+                outf.write(indent)
+            if self.pidfile:
+                pidfile = self.pidfile
+            else:
+                pidfile = default_pidfile(self.name)
+            shell_write_command('-kill -SIGTERM $(cat {})'.format(pidfile))       
+        for postcmd in self.execstoppost:
+            if indent:
+                outf.write(indent)
+            shell_write_command(postcmd)
 
 # NOTE WELL!  This is not a robust/correct sort of before/after.
 #             It's an interim until I come up with something better.
@@ -422,13 +502,88 @@ def sort_services(services):
                                                          sorted[ix].after)
     return sorted
 
+def shell_common_header():
+    if args.verbose:
+        setx = '-x'
+    else:
+        setx = '+x'
+    outf.write('#!/usr/bin/env bash\nset -e\nset {}\n\n'.format(setx))
+    shell_comment('Copyright (c) {} Extreme Networks, Inc.'.\
+               format(datetime.now().strftime("%Y")))
+    outf.write('# This shell script generated {} by the command:\n#\n'.\
+               format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    outf.write('#  {}'.format(os.path.basename(__file__)))
+    for arg in sys.argv[1:]:
+        outf.write(' {}'.format(arg))
+    outf.write('\n#\n')
+
+def shell_common_footer():
+    shell_comment('End of auto-generated shell script.')
+
+def shell_start_header():
+    shell_common_header()
+    shell_comment('snapcraft.yaml apps: command...')
+    outf.write('#  {}:\n'.format(os.path.basename(args.outfile)))
+    outf.write('#    command: usr/bin/{}\n'.format(os.path.basename(args.outfile)))
+    if args.nodaemon:
+        outf.write('#\n')
+    else:
+        outf.write('#    daemon: notify\n')
+        outf.write('#    stop-command: usr/bin/{}\n#\n'.\
+                   format(os.path.basename(stopfile)))
+
+    shell_comment('Set a new process group id.')
+    shell_write_command('pgid=$(ps -o pgid= $$ | grep -o [0-9]*)')
+    shell_write_command('pid=$$')
+    shell_write_command('if [ "$pid" != "$pgid" ] ; then')
+    shell_write_command('    exec setsid $(readlink -f $0) $@')
+    shell_write_command('fi')
+    shell_write_command('test -d {0} || mkdir -p {0}'.format(args.piddir))
+    shell_write_command('echo $$ > {}/{}'.\
+                        format(args.piddir, os.path.basename(args.outfile)))
+
+    shell_comment('Initialization')
+    shell_write_command('cd $SNAP')
+    if args.init:
+        shell_write_command(args.init)
+
+def shell_start_footer():
+    shell_comment('Handle shell exit.')
+    outf.write('function finish {\n')
+#    for svc in reversed(services):
+#        outf.write('\n')
+#        svc.shell_service_stop('  ')
+    outf.write('  . $SNAP/usr/bin/{}\n'.format(stopfile))
+    outf.write('}\ntrap finish EXIT\n\n')
+    if not args.nodaemon:
+        shell_comment('Notify Snap that we are up and running.')
+        shell_write_command('systemd-notify --ready')
+    shell_comment('Monitor the children.')
+    shell_write_command('set +x')
+    shell_write_command('while true ; do sleep 1 ; done')
+    shell_common_footer()
+
+def shell_stop_header():
+    shell_common_header()
+
+def shell_stop_footer():
+    shell_comment('Sweep up any stragglers.')
+    shell_write_command('kill -SIGKILL -$(cat {}/{})'.\
+                        format(args.piddir, os.path.basename(args.outfile)))
+    shell_common_footer()
+
 #
 # Main
 #
 parser = argparse.ArgumentParser()
 parser.add_argument('root', help='root of snap filesystem')
 parser.add_argument('outfile', help='place output in this file')
+parser.add_argument('--apps', help='Generate a snapcraft.yaml apps section.',
+                    action='store_true')
+parser.add_argument('--shell', help='Generate a shell file.', action='store_true')
+parser.add_argument('--piddir', help='Pid file location.', default='$SNAP_DATA/var/run/opx/pids')
 parser.add_argument('--init', help='init cmd')
+parser.add_argument('--delay', help='Seconds delay after spwaning service.')
 parser.add_argument('--exclude', help='Exclude service(s).', action='append')
 parser.add_argument('--verbose', help='Verbose apps section.', action='store_true')
 parser.add_argument('--nodaemon', help='No daemonization', action='store_true')
@@ -439,6 +594,7 @@ args = parser.parse_args()
 nodaemon = args.nodaemon
 snap = args.root
 snapdata = args.root + '/var'
+stopfile = args.outfile + '-stop'
 
 services = [ ]
 service_dirs = [ args.root + '/lib/systemd/system' ]
@@ -464,19 +620,42 @@ if args.debug:
     print
     print 'Managing the following services...'
     for svc in services:
-        svc.dump()
+            svc.dump()
 try:
     outf = open(args.outfile, 'w')
 except:
     print 'Cannot open output file {}'.format(args.outfile)
     sys.exit(1)
 
-outf.write('#\n# This section generated {} by {}\n'.\
-           format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                          os.path.basename(__file__)))
-outf.write('# Do not modify the apps: section manually.\n#\n\napps:\n\n')
+if args.apps:
+    outf.write('#\n# This section generated {} by {}\n'.\
+               format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                      os.path.basename(__file__)))
+    outf.write('# Do not modify the apps: section manually.\n#\n\napps:\n\n')
 
-for svc in services:
-    svc.command(args.verbose, args.init)
+    for svc in services:
+        svc.apps_command(args.verbose, args.init)
 
-outf.write('#\n# END of auto-generated apps: section.\n#\n')
+    outf.write('#\n# END of auto-generated apps: section.\n#\n')
+    outf.close()
+
+elif args.shell:
+    shell_start_header()
+    for svc in services:
+        svc.shell_service_start()
+    shell_start_footer()
+    outf.close()
+    os.chmod(args.outfile, 0755)
+
+    if args.nodaemon:
+        try:
+            outf = open(stopfile, 'w')
+        except:
+            print 'Cannot open output file {}'.format(stopfile)
+            sys.exit(1)
+        shell_stop_header()
+        for svc in reversed(services):
+            svc.shell_service_stop()
+        shell_stop_footer()
+        outf.close()
+        os.chmod(stopfile, 0755)

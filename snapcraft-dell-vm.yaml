@@ -33,7 +33,7 @@ apps:
     
 parts:
   opx-init:
-    plugin: make
+    plugin: dump
     source: src/opx-init
     stage-packages: [ redis-server, i2c-tools, binutils, file, strace, bash, iputils-ping, traceroute, python, libpython2.7, procps ]
     stage:

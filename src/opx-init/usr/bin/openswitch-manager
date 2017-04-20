@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+set -e
+set -x
+
+
+#
+# Copyright (c) 2017 Extreme Networks, Inc.
+#
+# This shell script generated 2017-04-20 06:31:30 by the command:
+#
+#  service-to-snapcraft-apps.py --shell --debug --verbose --delay 2 --exclude opx-qos-init.service --init $SNAP/usr/bin/opx-snap-vm-init start prime/ src/opx-init/usr/bin/openswitch-manager
+#
+
+#
+# snapcraft.yaml apps: command...
+#
+#  openswitch-manager:
+#    command: usr/bin/openswitch-manager
+#    daemon: notify
+#    stop-command: usr/bin/openswitch-manager-stop
+#
+
+#
+# Set a new process group id.
+#
+pgid=$(ps -o pgid= $$ | grep -o [0-9]*)
+pid=$$
+if [ "$pid" != "$pgid" ] ; then
+    exec setsid $(readlink -f $0) $@
+fi
+test -d $SNAP_DATA/var/run/opx/pids || mkdir -p $SNAP_DATA/var/run/opx/pids
+echo $$ > $SNAP_DATA/var/run/opx/pids/openswitch-manager
+
+#
+# Initialization
+#
+cd $SNAP
+$SNAP/usr/bin/opx-snap-vm-init start
+
+#
+# redis-server.service
+#
+systemd-notify --status="Starting redis-server.service..."
+/bin/mkdir -m 0711 -p $SNAP_DATA/var/lib/redis || true
+/bin/mkdir -m 0711 -p $SNAP_DATA/var/log/redis || true
+/bin/mkdir -m 0711 -p $SNAP_DATA/var/run/redis || true
+/bin/mkdir -m 0711 -p $SNAP/etc/redis || true
+$SNAP/usr/bin/snapify-redis-config $SNAP_DATA/var/run/redis/redis.conf
+/bin/run-parts --verbose $SNAP/etc/redis/redis-server.pre-up.d || true
+$SNAP/usr/bin/service-helper --verbose --pidfile $SNAP_DATA/var/run/redis/redis-server.pid --cmd "$SNAP/usr/bin/redis-server $SNAP_DATA/var/run/redis/redis.conf" redis-server 
+/bin/run-parts --verbose $SNAP/etc/redis/redis-server.post-up.d || true
+
+#
+# opx-cps.service
+#
+systemd-notify --status="Starting opx-cps.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-cps --cmd "$SNAP/usr/bin/opx_cps_service" opx-cps &
+sleep 2
+
+#
+# opx-tmpctl.service
+#
+systemd-notify --status="Starting opx-tmpctl.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-tmpctl --cmd "$SNAP/usr/bin/opx_env_tmpctl_svc -f $SNAP/etc/opx/env-tmpctl/config.json" opx-tmpctl &
+sleep 2
+
+#
+# opx-cps-db.service
+#
+systemd-notify --status="Starting opx-cps-db.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-cps-db --cmd "$SNAP/usr/bin/python $SNAP/usr/lib/opx/cps_db_stunnel_manager.py" opx-cps-db &
+sleep 2
+
+#
+# opx-monitor-phy-media.service
+#
+systemd-notify --status="Starting opx-monitor-phy-media.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-monitor-phy-media --cmd "$SNAP/usr/bin/base_nas_monitor_phy_media.sh" opx-monitor-phy-media &
+sleep 2
+
+#
+# opx-phy-media-config.service
+#
+systemd-notify --status="Starting opx-phy-media-config.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-phy-media-config --cmd "$SNAP/usr/bin/base_nas_phy_media_config.sh" opx-phy-media-config &
+sleep 2
+
+#
+# opx-pas.service
+#
+systemd-notify --status="Starting opx-pas.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-pas --cmd "$SNAP/usr/bin/opx_pas_service -m $SNAP_DATA/var/run/fuse" opx-pas &
+sleep 2
+
+#
+# opx-nas.service
+#
+systemd-notify --status="Starting opx-nas.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/netserve.pid --cmd "$SNAP/usr/bin/opx_nas_daemon.sh" opx-nas 
+
+#
+# opx-nas-shell.service
+#
+systemd-notify --status="Starting opx-nas-shell.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-nas-shell --cmd "$SNAP/usr/bin/base-nas-shell.sh" opx-nas-shell &
+sleep 2
+
+#
+# opx-front-panel-ports.service
+#
+systemd-notify --status="Starting opx-front-panel-ports.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-front-panel-ports --cmd "$SNAP/usr/bin/base_nas_front_panel_ports.sh" opx-front-panel-ports &
+sleep 2
+
+#
+# opx-create-interface.service
+#
+systemd-notify --status="Starting opx-create-interface.service..."
+$SNAP/usr/bin/base_nas_create_interface.sh
+$SNAP/usr/bin/base_nas_fanout_init.sh && $SNAP/usr/bin/network_restart.sh
+
+#
+# opx-acl-init.service
+#
+systemd-notify --status="Starting opx-acl-init.service..."
+$SNAP/usr/bin/base_acl_copp_svc.sh
+
+#
+# opx-ip.service
+#
+systemd-notify --status="Starting opx-ip.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-ip --cmd "$SNAP/usr/bin/base_ip" opx-ip &
+sleep 2
+
+#
+# opx-nas-init.service
+#
+systemd-notify --status="Starting opx-nas-init.service..."
+$SNAP/usr/bin/service-helper --verbose --env $SNAP/etc/opx/opx-environment --pidfile $SNAP_DATA/var/run/opx/pids/opx-nas-init --cmd "$SNAP/usr/bin/base_nas_default_init.sh" opx-nas-init &
+sleep 2
+
+#
+# Handle shell exit.
+#
+function finish {
+  . $SNAP/usr/bin/src/opx-init/usr/bin/openswitch-manager-stop
+}
+trap finish EXIT
+
+
+#
+# Notify Snap that we are up and running.
+#
+systemd-notify --ready
+
+#
+# Monitor the children.
+#
+set +x
+while true ; do sleep 1 ; done
+
+#
+# End of auto-generated shell script.
+#
