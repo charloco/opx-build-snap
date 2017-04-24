@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -e
+set -x
+
+pid=0
+procname=opx_nas_daemon
+function kill_app() {
+    $SNAP/usr/bin/pkill $pid
+    exit 0
+}
+trap "kill_app" SIGINT SIGTERM
+
+set -o allexport
+. $SNAP/etc/opx/opx-environment
+set +o allexport
+case $1 in
+    start)
+        $SNAP/usr/bin/opx_nas_daemon.sh
+        sleep 2
+        ;;
+    *)
+        echo "usage: $0 {start}"
+        ;;
+esac
+
+pid=$(pidof $procname)
+while kill -0 $pid ; do
+    sleep 1
+done
+
+exit 1000

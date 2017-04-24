@@ -3,6 +3,8 @@ set -e
 set +x
 shopt -s nullglob
 
+. $SNAP/usr/bin/opx-init-env
+
 # "hw" == Hardware
 # "vm" == Virtual Machine
 if [ -z $1 ] ; then
@@ -15,8 +17,6 @@ if [ $MACHINETYPE == "hw" ] ; then
     # Start platform-specific modules
     systemctl restart systemd-modules-load
 fi
-
-source $SNAP/usr/bin/opx-init-env
 
 [ -d $SNAP_DATA/run ] || mkdir -p $SNAP_DATA/run
 [ -d $SNAP_DATA/var ] || mkdir -p $SNAP_DATA/var
@@ -52,3 +52,4 @@ fi
 # This MUST be the last thing we do as part of init since all other
 # start up scripts look for this directory to flag init complete.
 [ -d $PIDDIR ] || mkdir -p $PIDDIR
+rm -f $PIDDIR/*

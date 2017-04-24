@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -e
+set -x
+
+. $SNAP/usr/bin/opx-init-env
+
+case $1 in
+    start)
+        /bin/rm -rf $PIDDIR
+        /bin/rm -rf $SNAP_DATA/var/run/supervisor
+        mkdir -p $SNAP_DATA/var/run/supervisor
+        $SNAP/usr/bin/opx-snap-vm-init start
+        exec $SNAP/bin/supervisord -c $SNAP/etc/supervisor/supervisord.conf
+        ;;
+    stop)
+        pkill -SIGTERM supervisord
+        ;;
+    *)
+        echo "usage: $0 {start|stop}"
+        ;;
+esac
+exit 0

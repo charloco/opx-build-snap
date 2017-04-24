@@ -208,6 +208,9 @@ if not os.path.exists(piddir):
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
+if os.getpid() != os.getpgid(0):
+    print 'WARNING: Not process group manager - pid={} pgid={}'.format(os.getpid(),
+                                                                       os.getpgid(0))
 
 services = [ ]
 service_dirs = [ snap + '/lib/systemd/system' ]

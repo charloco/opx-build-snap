@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+set +x
+
+set -o allexport
+. $SNAP/etc/opx/opx-environment
+set +o allexport
+case $1 in
+    start)
+        exec $SNAP/usr/bin/base_nas_monitor_phy_media.sh
+        ;;
+    *)
+        echo "usage: $0 {start}"
+        ;;
+esac
+exit 0

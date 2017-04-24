@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -e
+set -x
+
+set -o allexport
+. $SNAP/etc/opx/opx-environment
+set +o allexport
+case $1 in
+    start)
+        exec $SNAP/usr/bin/opx_cps_service
+        ;;
+    stop)
+        pkill -SIGTERM opx_cps_service
+        ;;
+    *)
+        echo "usage: $0 {start|stop}"
+        ;;
+esac
+exit 0

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+set -x
+
+set -o allexport
+. $SNAP/etc/opx/opx-environment
+set +o allexport
+case $1 in
+    start)
+        exec $SNAP/usr/bin/opx_pas_service -m $SNAP_DATA/var/run/fuse
+        ;;
+    *)
+        echo "usage: $0 {start}"
+        ;;
+esac
+exit 0

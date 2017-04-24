@@ -59,3 +59,4 @@ class XDumpPlugin(snapcraft.plugins.dump.DumpPlugin):
                         _replace(fpath, '/usr/bin/', '$SNAP/usr/bin/', '\$SNAP/usr/bin/')
                         _replace(fpath, '/etc/opx/', '$SNAP/etc/opx/', '\$SNAP/etc/opx/')
                         _replace(fpath, '/usr/lib/', '$SNAP/usr/lib/', '\$SNAP/usr/lib/')
+                        _replace(fpath, '/var/run/', '$SNAP_DATA/var/run/', '\$SNAP_DATA/var/run/')
