@@ -2,21 +2,34 @@
 set -e
 set -x
 
+#
+# Copyright (c) 2017 Extreme Networks, Inc.
+#
+# This file was generated 2017-04-26 13:48:01 by the command:
+#
+#  service-to-snapcraft.py --supervisor --verbose --debug --init $SNAP/usr/bin/opx-snap-init --specific opx-platform-init.service --exclude opx-qos-init.service --wrapperdir src/opx-init/usr/bin prime/ src/opx-init/etc/supervisor/supervisord.conf
+#
+
+set -o allexport
 . $SNAP/usr/bin/opx-init-env
+set +o allexport
 
 case $1 in
     start)
+        $SNAP/usr/bin/opx-snap-init
         /bin/rm -rf $PIDDIR
         /bin/rm -rf $SNAP_DATA/var/run/supervisor
         mkdir -p $SNAP_DATA/var/run/supervisor
-        $SNAP/usr/bin/opx-snap-vm-init start
+        /bin/rm -rf $SNAP_DATA/var/log/supervisor
+        mkdir -p $SNAP_DATA/var/log/supervisor
         exec $SNAP/bin/supervisord -c $SNAP/etc/supervisor/supervisord.conf
         ;;
     stop)
-        pkill -SIGTERM supervisord
+        $SNAP/usr/bin/pkill -SIGTERM supervisord
         ;;
     *)
         echo "usage: $0 {start|stop}"
         ;;
 esac
+
 exit 0

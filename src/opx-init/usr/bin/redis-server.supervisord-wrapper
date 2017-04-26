@@ -2,23 +2,34 @@
 set -e
 set -x
 
+#
+# Copyright (c) 2017 Extreme Networks, Inc.
+#
+# This file was generated 2017-04-26 13:48:01 by the command:
+#
+#  service-to-snapcraft.py --supervisor --verbose --debug --init $SNAP/usr/bin/opx-snap-init --specific opx-platform-init.service --exclude opx-qos-init.service --wrapperdir src/opx-init/usr/bin prime/ src/opx-init/etc/supervisor/supervisord.conf
+#
+
 case $1 in
     start)
-        /bin/mkdir -m 0711 -p $SNAP_DATA/var/lib/redis || true
-        /bin/mkdir -m 0711 -p $SNAP_DATA/var/log/redis || true
-        /bin/mkdir -m 0711 -p $SNAP_DATA/var/run/redis || true
+        /bin/mkdir -m 0755 -p $SNAP_DATA/var/lib/redis || true
+        /bin/mkdir -m 0755 -p $SNAP_DATA/var/log/redis || true
+        /bin/mkdir -m 0755 -p $SNAP_DATA/var/run/redis || true
+        /bin/mkdir -m 0755 -p $SNAP/etc/redis || true
         $SNAP/usr/bin/snapify-redis-config $SNAP_DATA/var/run/redis/redis.conf
         sed -i 's/^daemonize yes/# daemonize no/g' $SNAP_DATA/var/run/redis/redis.conf
         /bin/run-parts --verbose $SNAP/etc/redis/redis-server.pre-up.d || true
         exec $SNAP/usr/bin/redis-server $SNAP_DATA/var/run/redis/redis.conf
+        /bin/run-parts --verbose $SNAP/etc/redis/redis-server.post-up.d || true
         ;;
     stop)
         /bin/run-parts --verbose $SNAP/etc/redis/redis-server.pre-down.d || true
-        $SNAP/usr/bin/pkill -SIGKILL redis-server
+        $SNAP/usr/bin/pkill -SIGTERM redis-server
         /bin/run-parts --verbose $SNAP/etc/redis/redis-server.post-down.d || true
         ;;
     *)
         echo "usage: $0 {start|stop}"
         ;;
 esac
+
 exit 0

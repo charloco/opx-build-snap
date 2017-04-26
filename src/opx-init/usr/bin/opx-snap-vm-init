@@ -5,9 +5,7 @@ shopt -s nullglob
 
 ACTION="$1"
 
-$SNAP/usr/bin/opx-snap-init vm
-
-source $SNAP/usr/bin/opx-init-env
+. $SNAP/usr/bin/opx-init-env
 
 function apply_rules {
     udevadm control --reload-rules

@@ -1,21 +1,33 @@
 #!/usr/bin/env bash
 set -e
-set +x
+set -x
 shopt -s nullglob
 
 . $SNAP/usr/bin/opx-init-env
 
 # "hw" == Hardware
 # "vm" == Virtual Machine
-if [ -z $1 ] ; then
-    MACHINETYPE="hw"
+if [ -f $SNAP/etc/opx/sai_vm_db.cfg ] ; then
+    MACHINETYPE="vm"
 else
-    MACHINETYPE=$1
+    MACHINETYPE="hw"
 fi
 
-if [ $MACHINETYPE == "hw" ] ; then
-    # Start platform-specific modules
-    systemctl restart systemd-modules-load
+if [ "$MACHINETYPE" == "hw" ] ; then
+    if [ -z "$SNAP" ] ; then
+        # Start platform-specific modules
+        systemctl restart systemd-modules-load
+    else
+        for f in $SNAP/etc/modules-load.d/*.conf ; do
+            while read line ; do
+                if [[ $line == *"#"* ]] ; then
+                    continue
+                else
+                    modprobe $line
+                fi
+            done < $f
+        done
+    fi
 fi
 
 [ -d $SNAP_DATA/run ] || mkdir -p $SNAP_DATA/run
@@ -49,6 +61,10 @@ else
     fi
 fi
 
+if [ "$MACHINETYPE" == "vm" ] ; then
+    $SNAP/usr/bin/opx-snap-vm-init start
+fi
+    
 # This MUST be the last thing we do as part of init since all other
 # start up scripts look for this directory to flag init complete.
 [ -d $PIDDIR ] || mkdir -p $PIDDIR

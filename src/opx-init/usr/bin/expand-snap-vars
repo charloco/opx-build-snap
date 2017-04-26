@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+set +x
+
+#
+# Expand Snap environment variables in a file.
+#
+
+sed -i "s|\$SNAP_USER_DATA|$SNAP_USER_DATA|g" $1
+sed -i "s|\$SNAP_DATA|$SNAP_DATA|g" $1
+sed -i "s|\$SNAP|$SNAP|g" $1

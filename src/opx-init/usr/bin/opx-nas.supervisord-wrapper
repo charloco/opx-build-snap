@@ -2,29 +2,39 @@
 set -e
 set -x
 
-pid=0
-procname=opx_nas_daemon
-function kill_app() {
-    $SNAP/usr/bin/pkill $pid
-    exit 0
-}
-trap "kill_app" SIGINT SIGTERM
+#
+# Copyright (c) 2017 Extreme Networks, Inc.
+#
+# This file was generated 2017-04-26 13:48:01 by the command:
+#
+#  service-to-snapcraft.py --supervisor --verbose --debug --init $SNAP/usr/bin/opx-snap-init --specific opx-platform-init.service --exclude opx-qos-init.service --wrapperdir src/opx-init/usr/bin prime/ src/opx-init/etc/supervisor/supervisord.conf
+#
 
 set -o allexport
 . $SNAP/etc/opx/opx-environment
 set +o allexport
+
+function kill_app() {
+    $SNAP/usr/bin/pkill opx_nas_daemon
+    exit 0
+}
+trap "kill_app" SIGINT SIGTERM
+
 case $1 in
     start)
-        $SNAP/usr/bin/opx_nas_daemon.sh
+        $SNAP/usr/bin/opx_nas_daemon.sh &
         sleep 2
         ;;
+    stop)
+        $SNAP/usr/bin/pkill -SIGTERM opx_nas_daemon
+        ;;
     *)
-        echo "usage: $0 {start}"
+        echo "usage: $0 {start|stop}"
         ;;
 esac
 
-pid=$(pidof $procname)
-while kill -0 $pid ; do
+pid=$(pidof opx_nas_daemon)
+while kill -0 $pid ; do 
     sleep 1
 done
 

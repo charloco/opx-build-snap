@@ -1,8 +1,8 @@
-name: openswitch-dell-vm
+name: openswitch-alphanetworks-snc-60a0-486f
 version: '1.0.1'
-summary: OpenSwitch for the Dell VM
+summary: OpenSwitch for the Alphanetworks SNC-60a0-486f
 description: |
-  OpenSwitch for the Dell Virtual Machine.
+  OpenSwitch for the Alphanetworks SNC-60a0-486f
 
 grade: devel
 confinement: devmode
@@ -11,10 +11,8 @@ build-packages: [ libsystemd-dev, libbsd-dev ]
 
 apps:
 
-  openswitch-manager:
-    command: usr/bin/openswitch-manager
-    daemon: notify
-    stop-command: usr/bin/openswitch-manager-stop
+  debug:
+    command: bin/bash
 
   # This command is used to run a quick sanity test on the OPX in order
   # to verify that OPX was installed and started correctly.
@@ -24,28 +22,39 @@ apps:
   # This command spawns an interactive SAI/NPU shell
   # ::help for help
   # ::exit to exit shell
+  #
+  # The following command requires opx-nas-common which is not yet supported on the x870
+  #
   hshell:
     command: usr/bin/ishell.sh
 
+  # This command is used to auto-start and auto-stop the OPX services.
+  supervisord:
+    command: usr/bin/supervisord.supervisord-wrapper start
+#    daemon: forking
+#    stop-command: bin/supervisorctl shutdown
+#    plugs: [ network, network-control, network-bind, network-setup-observe, network-setup-control, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
+
+  supervisorctl:
+    command: bin/supervisorctl -c $SNAP/etc/supervisor/supervisord.conf
+    
 parts:
+  supervisor:
+    plugin: python
+    python-version: python2
+    python-packages: [ supervisor ]
+    stage-packages: [ python2.7 ]
   opx-init:
     plugin: dump
     source: src/opx-init
-    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, iputils-ping, traceroute, python, libpython2.7, procps ]
+    stage-packages: [ redis-server, libhiredis0.13, i2c-tools, binutils, file, strace, iputils-ping, traceroute, procps, bash ]
     stage:
       - -etc/redis/redis.conf
   snap-service:
     plugin: dump
     source: src/snap-service
-  helpers:
-    plugin: make
-    source: src/helpers
-    stage-packages: [ libsystemd-dev, libbsd-dev ]
   libopx-logging:
     source: ../libopx-logging1_1.0.1_amd64.deb 
-    plugin: x_dump
-  opx-logging:
-    source: ../opx-logging_1.0.1_amd64.deb 
     plugin: x_dump
   python-opx-logging:
     source: ../python-opx-logging_1.0.1_amd64.deb 
@@ -62,14 +71,9 @@ parts:
   opx-cps:
     source: ../opx-cps_1.0.1_amd64.deb
     plugin: x_dump
-    stage-packages: [ libhiredis0.13 ]
   python-opx-cps:
     source: ../python-opx-cps_1.0.1_amd64.deb
     plugin: x_dump
-  libopx-db-sql:
-    source: ../libopx-db-sql1_1.0.2_amd64.deb
-    plugin: x_dump
-    stage-packages: [ sqlite3 ]
   libopx-base-model:
     source: ../libopx-base-model1_1.0.1_amd64.deb
     plugin: x_dump
@@ -80,37 +84,22 @@ parts:
     source: ../libopx-sdi-device-drivers1_1.0.1_amd64.deb
     plugin: x_dump
   libopx-sdi-sys:
-    source: ../libopx-sdi-sys-vm1_1.0.1_amd64.deb
-    plugin: x_dump
-  opx-platform:
-    source: ../opx-dell-vm_1.0.3_all.deb
-    plugin: x_dump
-  opx-platform-config:
-    source: ../opx-platform-config-dell-vm_1.0.3_all.deb
-    plugin: x_dump
-  opx-pas:
-    source: ../opx-pas_1.0.1_amd64.deb
-    plugin: x_dump
-  opx-tempctl:
-    source: ../opx-tmpctl_1.0.1_all.deb
-    plugin: x_dump
-  libopx-sai-common-utils:
-    source: ../libopx-sai-common-utils1_1.0.1_amd64.deb
-    plugin: x_dump
-  libopx-sai-common:
-    source: ../libopx-sai-common1_1.0.1_amd64.deb
-    plugin: x_dump
-  libopx-sai-vm:
-    source: ../libopx-sai-vm1_1.0.2_amd64.deb
+    source: ../libopx-sdi-sys1_1.0.1_amd64.deb
     plugin: x_dump
   libopx-nas-common:
     source: ../libopx-nas-common1_1.0.1_amd64.deb
     plugin: x_dump
-  libopx-nas-acl:
-    source: ../libopx-nas-acl1_1.0.1_amd64.deb
+  libopx-nas-ndi-using-broadcom:
+    source: ../libopx-nas-ndi1-using-broadcom_1.0.3_amd64.deb
+    plugin: x_dump
+  libopx-nas-linux:
+    source: ../libopx-nas-linux1_1.0.1_amd64.deb
     plugin: x_dump
   libopx-nas-interface:
     source: ../libopx-nas-interface1_1.0.2_amd64.deb
+    plugin: x_dump
+  libopx-nas-acl:
+    source: ../libopx-nas-acl1_1.0.1_amd64.deb
     plugin: x_dump
   libopx-nas-l2:
     source: ../libopx-nas-l2-1_1.0.1_amd64.deb
@@ -118,26 +107,42 @@ parts:
   libopx-nas-l3:
     source: ../libopx-nas-l3-1_1.0.1_amd64.deb
     plugin: x_dump
-  libopx-nas-linux:
-    source: ../libopx-nas-linux1_1.0.1_amd64.deb
-    plugin: x_dump
-  libopx-nas-ndi:
-    source: ../libopx-nas-ndi1_1.0.2_amd64.deb
-    plugin: x_dump
   libopx-nas-qos:
     source: ../libopx-nas-qos1_1.0.1_amd64.deb
     plugin: x_dump
-  opx-nas-acl:
-    source: ../opx-nas-acl_1.0.1_amd64.deb
+  opx-logging:
+    source: ../opx-logging_1.0.1_amd64.deb
     plugin: x_dump
-  opx-nas-common:
-    source: ../opx-nas-common_1.0.1_amd64.deb
+  opx-cps:
+    source: ../opx-cps_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-platform:
+    source: ../opx-alphanetworks-snc60a0-486f_1.0.3_all.deb
+    plugin: x_dump
+  opx-platform-config:
+    source: ../opx-platform-config-alphanetworks-snc60a0-486f_1.0.3_all.deb
+    plugin: x_dump
+    stage-packages: [ dmidecode ]
+  opx-pas:
+    source: ../opx-pas_1.0.1_amd64.deb
+    plugin: x_dump
+  opx-tempctl:
+    source: ../opx-tmpctl_1.0.1_all.deb
+    plugin: x_dump
+  opx-broadcom-sai:
+    source: ftp://bldecos-1.extremenetworks.com/opx-ubuntu/opx-broadcom-sai_1.0.1_amd64.deb
     plugin: x_dump
   opx-nas-daemon:
     source: ../opx-nas-daemon_1.0.1_amd64.deb
     plugin: x_dump
+  opx-nas-common:
+    source: ../opx-nas-common_1.0.1_amd64.deb
+    plugin: x_dump
   opx-nas-interface:
     source: ../opx-nas-interface_1.0.2_amd64.deb
+    plugin: x_dump
+  opx-nas-linux:
+    source: ../opx-nas-linux_1.0.1_amd64.deb
     plugin: x_dump
   opx-nas-l2:
     source: ../opx-nas-l2_1.0.1_amd64.deb
@@ -145,8 +150,8 @@ parts:
   opx-nas-l3:
     source: ../opx-nas-l3_1.0.1_amd64.deb
     plugin: x_dump
-  opx-nas-linux:
-    source: ../opx-nas-linux_1.0.1_amd64.deb
+  opx-nas-acl:
+    source: ../opx-nas-acl_1.0.1_amd64.deb
     plugin: x_dump
   opx-nas-qos:
     source: ../opx-nas-qos_1.0.1_amd64.deb

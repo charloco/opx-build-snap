@@ -5,22 +5,32 @@ set -x
 #
 # Copyright (c) 2017 Extreme Networks, Inc.
 #
-# This file was generated 2017-04-26 13:48:01 by the command:
+# This file was generated 2017-04-26 09:34:59 by the command:
 #
 #  service-to-snapcraft.py --supervisor --verbose --debug --init $SNAP/usr/bin/opx-snap-init --specific opx-platform-init.service --exclude opx-qos-init.service --wrapperdir src/opx-init/usr/bin prime/ src/opx-init/etc/supervisor/supervisord.conf
 #
 
-set -o allexport
-. $SNAP/etc/opx/opx-environment
-set +o allexport
+if [ ! -e $SNAP/usr/bin/opx_platform_init.sh ] ; then
+    while true ; do
+        sleep 60
+    done
+fi
 
 case $1 in
     start)
-        exec $SNAP/usr/bin/base_nas_phy_media_config.sh
+        $SNAP/usr/bin/opx_platform_init.sh
+        $SNAP/etc/init.d/opx-broadcom-sai start
+        ;;
+    stop)
+        $SNAP/etc/init.d/opx-broadcom-sai stop
         ;;
     *)
-        echo "usage: $0 {start}"
+        echo "usage: $0 {start|stop}"
         ;;
 esac
+
+while true ; do
+    sleep 60
+done
 
 exit 0

@@ -1,6 +1,7 @@
 *~
 */*~
 *.snap
+*.pyc
 snapcraft.yaml
 prime
 stage

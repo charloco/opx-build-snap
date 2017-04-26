@@ -1,16 +1,29 @@
 #!/usr/bin/env bash
 set -e
-set +x
+set -x
+
+#
+# Copyright (c) 2017 Extreme Networks, Inc.
+#
+# This file was generated 2017-04-26 13:48:01 by the command:
+#
+#  service-to-snapcraft.py --supervisor --verbose --debug --init $SNAP/usr/bin/opx-snap-init --specific opx-platform-init.service --exclude opx-qos-init.service --wrapperdir src/opx-init/usr/bin prime/ src/opx-init/etc/supervisor/supervisord.conf
+#
 
 set -o allexport
 . $SNAP/etc/opx/opx-environment
 set +o allexport
+
 case $1 in
     start)
         exec $SNAP/usr/bin/base_nas_monitor_phy_media.sh
         ;;
+    stop)
+        pkill -SIGTERM -f base_nas_monitor_phy_media
+        ;;
     *)
-        echo "usage: $0 {start}"
+        echo "usage: $0 {start|stop}"
         ;;
 esac
+
 exit 0

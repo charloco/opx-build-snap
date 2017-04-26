@@ -28,13 +28,15 @@ class Service(object):
         line = line.replace('$SNAP', self.snap)
         return line
 
-    def __create_dir(self, newdir, mode=0777):
+    def __create_dir(self, cmds, newdir, mode=0755):
         if newdir.startswith("-"):
             newdir = newdir[1:]
-        if not os.path.isdir(newdir):
-            if self.debug:
-                print 'Creating dir {} with mode 0{:o}'.format(newdir, mode)
-            os.makedirs(newdir, mode)
+            mycmd = '-'
+        else:
+            mycmd = ''
+        mycmd += '/bin/mkdir -m 0{:o} -p {}'.format(mode, newdir)
+        if newdir != '/':
+            self.__append_cmd(cmds, mycmd) 
 
     def __append_cmd(self, cmds, newcmd):
         if not newcmd:
@@ -68,8 +70,6 @@ class Service(object):
             return
         elif ciline.startswith('documentation='):
             return
-        elif ciline.startswith('remainafterexit='):
-            return
         elif ciline.startswith('timeoutstopsec='):
             return
         elif ciline.startswith('restart='):
@@ -88,6 +88,8 @@ class Service(object):
             return
         elif ciline.startswith('capabilityboundingset='):
             return
+        elif ciline.startswith('remainafterexit='):
+            self.remainafterexit = line.split('=',1)[-1]
         elif ciline.startswith('description='):
             self.descr = line.split('=',1)[-1]
         elif ciline.startswith('after='):
@@ -125,9 +127,13 @@ class Service(object):
         elif ciline.startswith('alias='):
             self.alias = line.split('=',1)[-1]
         elif ciline.startswith('readonlydirectories='):
-            self.__create_dir(line.split('=',1)[-1], 0555)
+            self.__create_dir(self.mkdirs, line.split('=',1)[-1], 0555)
         elif ciline.startswith('readwritedirectories='):
-            self.__create_dir(line.split('=',1)[-1])
+            self.__create_dir(self.mkdirs, line.split('=',1)[-1])
+
+        # Expanded service commands needed for Snap handling.
+        elif ciline.startswith('processname='):
+            self.processname = line.split('=',1)[-1]
         else:
             print '{}: Unrecognized "{}"'.format(self.svcid, line)
 
@@ -137,9 +143,8 @@ class Service(object):
                 self.__parse_service_line(line)
 
     def __parse_dropins( self ):
-        dropin_roots = [ self.snapdata + '/run/systemd/system',
-                         self.snap + '/usr/lib/systemd/system',
-                         self.snap + '/etc/systemd/system' ]
+        dropin_roots = [ self.root + '/usr/lib/systemd/system',
+                         self.root + '/etc/systemd/system' ]
         for r in dropin_roots:
             ddir = os.path.join(r, self.svcid + '.d')
             if not os.path.isdir(ddir):
@@ -159,6 +164,8 @@ class Service(object):
                 print 'Create {} with pid {}'.format(self.pidfile,pid)
 
     def __import_env_file(self):
+        if self.noenvimport:
+            return
         with open(self.envfile) as f:
             for line in f:
                 line = line.lstrip()
@@ -203,7 +210,9 @@ class Service(object):
         if self.quitafter == self.svcid:
             sys.exit(0)
 
-    def __init__(self, path, debug=0, quitafter='', prompt='', nostart=0, piddir=''):
+    def __init__(self, path, debug=0, quitafter='', prompt='',
+                 nostart=0, piddir='', snap='', snapdata='',
+                 noenvimport=False, root=''):
         self.svcid = os.path.basename(path)
         self.debug = debug
         self.quitafter = quitafter
@@ -215,6 +224,9 @@ class Service(object):
         self.requires = ''
         self.pidfile = ''
         self.envfile = ''
+        self.remainafterexit = 'no'
+        self.processname = ''
+        self.noenvimport = noenvimport
         self.svcenv = os.environ.copy()
         self.exectype = 'simple'
         self.killsig = '-SIGTERM'
@@ -224,11 +236,18 @@ class Service(object):
         self.execstop = [ ]
         self.execstoppre = [ ]
         self.execstoppost = [ ]
-        self.snap = os.getenv('SNAP', './test')
-        self.snapdata = os.getenv('SNAP_DATA', './test')
+        self.mkdirs = [ ]
+        self.snap = os.getenv('SNAP', snap)
+        self.snapdata = os.getenv('SNAP_DATA', snapdata)
+        if root:
+            self.root = root
+        else:
+            self.root = self.snap
         self.__parse_service(path)
         self.__parse_dropins()
         self.name = self.__service_name(self.svcid)
+        if not self.processname:
+            self.processname = self.name
         if (self.after == '') & (self.before == ''):
             self.sort_dont_care = 0
         else:
@@ -241,6 +260,9 @@ class Service(object):
                                                                                self.requires,
                                                                                self.after)
                 sys.exit(1)
+        if len(self.execstart) > 1:
+            print 'Service {} defines multiple ExecStart commands.'.format(self.svcid)
+            sys.exit(1)
         if not self.pidfile:
             self.pidfile = self.piddir + '/' + self.name + '.pid'
         if self.envfile:
@@ -255,6 +277,8 @@ class Service(object):
     def start(self):
         if self.debug:
             print 'Starting {}'.format(self.svcid)
+        if self.mkdirs:
+            self.__run_commands(self.mkdirs)
         if self.execstartpre:
             self.__run_commands(self.execstartpre)
         self.__run_commands(self.execstart, self.exectype)
@@ -302,3 +326,127 @@ class Service(object):
 
         if self.execstoppost:
             self.__run_commands(self.execstoppost)
+
+
+# NOTE WELL!  This is not a robust/correct sort of before/after.
+#             It's an interim until I come up with something better.
+#
+#             This sort assumes that any service listed in 'before' or
+#             'after' is a member of the set being sorted.
+#             This sort assumes there are no loops or logic errors in
+#             the 'before' and 'after' assertions.
+#
+#             This sort assumes that if 'Requires' is used, then
+#             it matches the 'after' clause.
+def SortServices(services, debug=False):
+    sorted = [ ]
+    iteration = 0
+    lastlen = 0
+    while len(services) > 0:
+        if lastlen != len(services):
+            lastlen = len(services)
+            iteration = 0
+        else:
+            iteration += 1
+            if iteration > len(services):
+                print 'Unable to sort list - infinite loop.'
+                sys.exit(1)
+        svc = services.pop(0)
+        if debug:
+            print 'Sorting service {}... Before "{}" After "{}"'.format(svc.svcid,
+                                                                        svc.before,
+                                                                        svc.after)
+        inserted = False
+        if (svc.after != '') & (svc.before != ''):
+            print 'Service {} specifies both After and Before.'.format(svc.svcid)
+            sys.exit(1)
+        elif len(svc.after.split()) > 1:
+            print 'Service {} specifies multiple After: {}'.format(svc.svcid,
+                                                                   svc.after)
+            sys.exit(1)
+        elif len(svc.before.split()) > 1:
+            print 'Service {} specifies multiple Before: {}'.format(svc.svcid,
+                                                                    svc.before)
+            sys.exit(1)
+
+        # Don't care, put it as early as possible
+        elif (svc.after == '') & (svc.before == ''):
+            if debug:
+                print '    Insert {} at head of list.'.format(svc.svcid)
+            sorted.insert(0,svc)
+
+        # After - put it as late as possible
+        elif svc.after != '':
+            insertix = -1
+            afterix = -1
+            for ix in range(len(sorted)):
+                if debug:
+                    print '  check {}/{} before "{}" After "{}"'.format(ix,
+                                                                        sorted[ix].svcid,
+                                                                        sorted[ix].before,
+                                                                        sorted[ix].after)
+                if (insertix < 0) & (sorted[ix].after == svc.svcid):
+                    insertix = ix
+                elif sorted[ix].svcid == svc.after:
+                    afterix = ix
+
+            if afterix < 0:
+                if (len(services)) <= 0:
+                    print "{}: cannot find \'after\' service {}".format(svc.svcid,
+                                                                        svc.after)
+                    sys.exit(1)
+                if debug:
+                    print '    {}: cannot be sorted yet; will try later.'.format(svc.svcid)
+                services.append(svc)
+            elif insertix < 0:
+                if debug:
+                    print '    {}: placed at tail of list.'.format(svc.svcid)
+                sorted.append(svc)
+            else:
+                if debug:
+                    print '    {}: placed at {}/{}.'.format(svc.svcid,
+                                                            ix, len(sorted))
+                sorted.insert(ix,svc)
+
+        # Before, put it as early as possible
+        else:
+            insertix = -1
+            beforeix = -1
+            for ix in range(len(sorted)):
+                if debug:
+                    print '  check {}/{} Before "{}" after "{}"'.format(ix,
+                                                                        sorted[ix].svcid,
+                                                                        sorted[ix].before,
+                                                                        sorted[ix].after)
+                if sorted[ix].before == svc.svcid:
+                    insertix = ix
+                elif sorted[ix].svcid == svc.before:
+                    beforeix = ix
+            if beforeix < 0:
+                if (len(services)) <= 0:
+                    print "{}: cannot find \'before\' service {}".format(svc.svcid,
+                                                                         svc.before)
+                    sys.exit(1)
+                if debug:
+                    print '{}: cannot be sorted yet; will try later.'.format(svc.svcid)
+                services.append(svc)
+            elif insertix < (len(sorted) - 1):
+                if debug:
+                    print '    {}: placed at {}/{}.'.format(svc.svcid,
+                                                            insertix+1,
+                                                            len(sorted))
+                sorted.insert(insertix+1,svc)
+            else:
+                if debug:
+                    print '    {}: placed at tail of list.'.format(svc.svcid)
+                sorted.append(svc)
+
+    if debug:
+        print
+        print 'Sorted list...'
+        for ix in range(len(sorted)):
+            print '{}/{}: before "{}" after "{}"'.format(ix,
+                                                         sorted[ix].svcid,
+                                                         sorted[ix].before,
+                                                         sorted[ix].after)
+    return sorted

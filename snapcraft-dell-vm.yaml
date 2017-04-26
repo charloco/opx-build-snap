@@ -7,7 +7,12 @@ description: |
 grade: devel
 confinement: devmode
 
+build-packages: [ libsystemd-dev, libbsd-dev ]
+
 apps:
+
+  debug:
+    command: bin/bash
 
   # This command is used to run a quick sanity test on the OPX in order
   # to verify that OPX was installed and started correctly.
@@ -21,22 +26,27 @@ apps:
     command: usr/bin/ishell.sh
 
   # This command is used to auto-start and auto-stop the OPX services.
-  snap-service-helper:
-    command: usr/bin/snap-service-helper --debug --exclude opx-qos-init.service --env $SNAP/usr/bin/opx-init-env --precmd $SNAP/usr/bin/opx-snap-vm-init-start --postcmd $SNAP/usr/bin/opx-snap-vm-init-stop start
-    daemon: simple
-    stop-command: usr/bin/pkill -SIGTERM snap-service-helper
-    plugs: [ network, network-control, network-bind, network-setup-observe, network-setup-control, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
+  supervisord:
+    command: usr/bin/supervisord.supervisord-wrapper start
+    daemon: forking
+    stop-command: bin/supervisorctl shutdown
+#    plugs: [ network, network-control, network-bind, network-setup-observe, network-setup-control, network-observe, gsettings, firewall-control, fuse-support, i2c, kernel-module-control, process-control ]
+
+  supervisorctl:
+    command: bin/supervisorctl -c $SNAP/etc/supervisor/supervisord.conf
     
 parts:
+  supervisor:
+    plugin: python
+    python-version: python2
+    python-packages: [ supervisor ]
+    stage-packages: [ python2.7 ]
   opx-init:
     plugin: dump
     source: src/opx-init
-    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, iputils-ping, traceroute, python, libpython2.7, procps ]
+    stage-packages: [ redis-server, i2c-tools, binutils, file, strace, iputils-ping, traceroute, procps, bash ]
     stage:
       - -etc/redis/redis.conf
-  snap-service:
-    plugin: dump
-    source: src/snap-service
   libopx-logging:
     source: ../libopx-logging1_1.0.1_amd64.deb 
     plugin: x_dump
